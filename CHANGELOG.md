@@ -10,6 +10,13 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-14
+
+A small update to confirm that in-app updates work.
+
+- No changes to recording, editing or your settings. If this window appeared and the update installs, the update system is working.
+- The guides now explain how to clone the private repository on a new Mac.
+
 ## [0.1.0] - 2026-11-14
 
 The first version of Listening Tree: Audacity 4.0.2 under its own name, with updates from GitHub.

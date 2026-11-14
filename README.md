@@ -8,6 +8,9 @@ GitHub Releases page.
 
 ## Quick start (on your Mac)
 
+The repository is private, so git has to be signed in to GitHub first (once per Mac):
+`brew install gh && gh auth login --git-protocol https --web`, or clone it with GitHub Desktop.
+
 ```sh
 git clone https://github.com/guitarherofree/listening-tree.git ~/ListeningTree
 cd ~/ListeningTree
