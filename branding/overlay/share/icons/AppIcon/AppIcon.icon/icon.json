@@ -1,0 +1,39 @@
+{
+  "fill": {
+    "automatic-gradient": "srgb:0.10980,0.38431,0.28235,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "fill": {
+            "solid": "srgb:0.95686,0.90196,0.74510,1.00000"
+          },
+          "image-name": "ListeningTree.svg",
+          "name": "ListeningTree",
+          "position": {
+            "scale": 9.6,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.15
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}

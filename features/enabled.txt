@@ -1,0 +1,6 @@
+# Listening Tree features to build into the app, one folder name per line.
+# Lines starting with # are ignored. Remove a line (or comment it out) to
+# leave that feature out of the next build; its code stays in the repository.
+#
+# Example (the template is not meant to be enabled as-is):
+#   _template

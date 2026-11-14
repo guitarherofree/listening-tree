@@ -1,0 +1,8 @@
+# Local working copies and build output (all reproducible from this repo)
+/work/
+/dist/
+/.tools/
+/.ccache/
+
+# macOS
+.DS_Store

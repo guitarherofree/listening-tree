@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 13:14:14 -0500
+Subject: [PATCH 3/5] Listening Tree: build and register feature modules from
+ features/enabled.txt
+
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 806c0cb12c0a3c1b1a92bf00fa18d4d5562d2ce9..ec0b600a6a5d461e943640e7b5cba77c2c83a207 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -75,4 +75,7 @@ add_subdirectory(uicomponents)
+ add_subdirectory(stubs)
+ 
+ # App (main)
++# Listening Tree: feature modules from the Listening Tree repository (features/enabled.txt)
++add_subdirectory(${LT_ROOT}/features ${CMAKE_BINARY_DIR}/lt_features)
++
+ add_subdirectory(app)
+diff --git a/src/app/CMakeLists.txt b/src/app/CMakeLists.txt
+index bae64818f2c4483143eb1e8345e9c24f30a3f286..8ffd7050977913775a5d0918e7ed96c50db8253d 100644
+--- a/src/app/CMakeLists.txt
++++ b/src/app/CMakeLists.txt
+@@ -137,6 +137,7 @@ add_to_link_if_exists(muse::uicomponents)
+ add_to_link_if_exists(muse::workspace)
+ 
+ add_to_link_if_exists(appshell)
++add_to_link_if_exists(lt_features) # Listening Tree features
+ add_to_link_if_exists(audacity_extensions)
+ add_to_link_if_exists(au3audio)
+ add_to_link_if_exists(au3wrap)
+diff --git a/src/app/appfactory.cpp b/src/app/appfactory.cpp
+index b4e1be44f55c0a4fc0edae917c27216c33cf2a9f..4ccd7551e18df18ee094ac285e75fbe9f19a7a85 100644
+--- a/src/app/appfactory.cpp
++++ b/src/app/appfactory.cpp
+@@ -106,6 +106,8 @@
+ 
+ #include "au3wrap/au3wrapmodule.h"
+ 
++#include "lt_features.h" // Listening Tree features (features/enabled.txt)
++
+ using namespace muse;
+ using namespace au::app;
+ 
+@@ -190,6 +192,9 @@ std::shared_ptr<muse::IApplication> AppFactory::newGuiApp(const std::shared_ptr<
+     app->addModule(new au::effects::BuiltinEffectsCollectionModule());
+     app->addModule(new au::automation::AutomationModule());
+ 
++    // Listening Tree: modules of the features listed in features/enabled.txt
++    lt::addFeatureModules([&app](muse::modularity::IModuleSetup* module) { app->addModule(module); });
++
+     return app;
+ }
+ 

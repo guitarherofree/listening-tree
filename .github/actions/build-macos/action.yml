@@ -1,0 +1,63 @@
+name: Build and package (macOS)
+description: >
+  Installs the build tools (cached), builds a release build of Listening Tree with
+  ccache, and packages it into dist/. Used by the Build and Release workflows.
+
+inputs:
+  arch:
+    description: arm64, x86_64 or universal
+    required: false
+    default: arm64
+
+runs:
+  using: composite
+  steps:
+    - name: Restore build tools (Python tools and Qt)
+      uses: actions/cache@v5
+      with:
+        path: .tools
+        key: tools-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('config/upstream.env', 'scripts/bootstrap.sh') }}
+
+    - name: Restore compiler cache
+      uses: actions/cache/restore@v5
+      with:
+        path: .ccache
+        key: ccache-${{ runner.os }}-${{ inputs.arch }}-${{ github.run_id }}
+        restore-keys: ccache-${{ runner.os }}-${{ inputs.arch }}-
+
+    - name: Set up ccache
+      shell: bash
+      run: |
+        brew list ccache >/dev/null 2>&1 || brew install --quiet ccache
+        echo "CCACHE_DIR=$GITHUB_WORKSPACE/.ccache" >> "$GITHUB_ENV"
+        echo "CCACHE_MAXSIZE=3G" >> "$GITHUB_ENV"
+        echo "CCACHE_COMPRESS=true" >> "$GITHUB_ENV"
+        ccache -z >/dev/null
+
+    - name: Install build tools
+      shell: bash
+      run: scripts/bootstrap.sh
+
+    - name: Build
+      shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
+      run: scripts/build.sh --release --arch "$ARCH"
+
+    - name: Compiler cache statistics
+      if: always()
+      shell: bash
+      run: ccache -s || true
+
+    - name: Save compiler cache
+      if: always()
+      uses: actions/cache/save@v5
+      with:
+        path: .ccache
+        key: ccache-${{ runner.os }}-${{ inputs.arch }}-${{ github.run_id }}
+
+    - name: Package
+      shell: bash
+      env:
+        ARCH: ${{ inputs.arch }}
+      run: scripts/package.sh --arch "$ARCH"

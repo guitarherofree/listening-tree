@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 13:14:24 -0500
+Subject: [PATCH 4/5] Listening Tree: install downloaded updates in place on
+ macOS
+
+When the user chooses to install an update, start the bundled installer script
+after the app quits instead of opening the disk image in Finder.
+
+diff --git a/src/appshell/CMakeLists.txt b/src/appshell/CMakeLists.txt
+index 83987441bfd026a6eee6b44feed93cbb36b75094..b7c138b0f4cf1576398b308259def74d2376e246 100644
+--- a/src/appshell/CMakeLists.txt
++++ b/src/appshell/CMakeLists.txt
+@@ -92,6 +92,14 @@ qt_add_resources(appshell appshell_resources
+         resources/gpl-30.html
+ )
+ 
++# Listening Tree: hands downloaded updates to the installer script (core/updater in the Listening Tree repository)
++target_sources(appshell PRIVATE
++    ${LT_ROOT}/core/updater/installlauncher.cpp
++    ${LT_ROOT}/core/updater/installlauncher.h
++)
++set_source_files_properties(${LT_ROOT}/core/updater/installlauncher.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
++target_include_directories(appshell PRIVATE ${LT_ROOT}/core/updater)
++
+ target_link_libraries(appshell PRIVATE
+     muse::ui
+     muse::uicomponents
+diff --git a/src/appshell/internal/applicationactioncontroller.cpp b/src/appshell/internal/applicationactioncontroller.cpp
+index c3b945df86bef147848ab60ff862d3d9fcde0e93..c18a97f9959c35ce0f65c81b943fd0681c6ac167 100644
+--- a/src/appshell/internal/applicationactioncontroller.cpp
++++ b/src/appshell/internal/applicationactioncontroller.cpp
+@@ -37,6 +37,8 @@
+ 
+ #include "project/types/projecttypes.h"
+ 
++#include "installlauncher.h" // Listening Tree: core/updater/installlauncher.h
++
+ using namespace au::appshell;
+ using namespace muse::actions;
+ 
+@@ -339,7 +341,11 @@ bool ApplicationActionController::quit(const muse::io::path_t& installerPath)
+ #if defined(Q_OS_LINUX)
+         platformInteractive()->revealInFileBrowser(installerPath);
+ #else
+-        platformInteractive()->openUrl(QUrl::fromLocalFile(installerPath.toQString()));
++        // Listening Tree: install the update in place once the app has quit;
++        // if that cannot start, open the disk image so it can be installed by hand.
++        if (!lt::updater::launchInstaller(installerPath.toQString())) {
++            platformInteractive()->openUrl(QUrl::fromLocalFile(installerPath.toQString()));
++        }
+ #endif
+     }
+ 

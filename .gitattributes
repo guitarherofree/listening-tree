@@ -1,0 +1,2 @@
+# Patch files must reach git am byte-for-byte
+*.patch -text

@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 13:39:45 -0500
+Subject: [PATCH 5/5] Listening Tree: describe GitHub update checks in
+ Preferences
+
+
+diff --git a/src/preferences/qml/Audacity/Preferences/internal/AutomaticUpdateSection.qml b/src/preferences/qml/Audacity/Preferences/internal/AutomaticUpdateSection.qml
+index e0382ef4b30699473c1b160b741df8984d2958c9..d94d2d3f281ce4acd8630e361273294e098aeb45 100644
+--- a/src/preferences/qml/Audacity/Preferences/internal/AutomaticUpdateSection.qml
++++ b/src/preferences/qml/Audacity/Preferences/internal/AutomaticUpdateSection.qml
+@@ -41,7 +41,7 @@ BaseSection {
+         id: needCheckBox
+         width: parent.width
+ 
+-        text: qsTrc("appshell/preferences", "Check to see if a new version of Audacity is available")
++        text: qsTrc("appshell/preferences", "Check for a new version once a day") // Listening Tree
+ 
+         visible: root.isAppUpdatable
+ 
+@@ -57,7 +57,8 @@ BaseSection {
+     StyledTextLabel {
+         width: parent.width
+ 
+-        text: qsTrc("appshell/preferences", "Update checking requires network access. In order to protect your privacy, Audacity does not store any personal information. See our <a href=\"%1\">privacy policy</a> for more info.").arg(root.privacyPolicyUrl).replace("\n", "<br>")
++        // Listening Tree: updates come from the app's GitHub releases page
++        text: qsTrc("appshell/preferences", "Update checks ask GitHub for the newest release of this app. Nothing about you or your projects is sent.")
+ 
+         horizontalAlignment: Qt.AlignLeft
+         wrapMode: Text.WordWrap

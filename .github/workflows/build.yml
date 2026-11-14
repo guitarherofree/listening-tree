@@ -1,0 +1,31 @@
+# A test build on GitHub's macOS runners without publishing anything.
+# The disk image is attached to the run for a week. Run it from the Actions tab.
+# (See the note in release.yml about macOS minutes on private repositories.)
+
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: Which Macs to build for
+        type: choice
+        options: [arm64, universal]
+        default: arm64
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/build-macos
+        with:
+          arch: ${{ inputs.arch }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: listening-tree-${{ github.sha }}-${{ inputs.arch }}
+          path: dist/*.dmg*
+          retention-days: 7

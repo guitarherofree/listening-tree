@@ -1,0 +1,145 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 13:13:25 -0500
+Subject: [PATCH 1/5] Listening Tree: app name, bundle ID, settings namespace
+ and version
+
+Hooks cmake/ListeningTree.cmake (from the Listening Tree repository) into the
+configure step, gives the app its own settings namespace and bundle version,
+and falls back to a prebuilt .icns when Xcode 26's actool is unavailable.
+
+diff --git a/SetupConfigure.cmake b/SetupConfigure.cmake
+index f85f3586bcd2fab533120fdd378fb51084dbc611..fbbe670ed48838233bc767828c7faf9a9c534b84 100644
+--- a/SetupConfigure.cmake
++++ b/SetupConfigure.cmake
+@@ -65,8 +65,16 @@ if(BUILD_MODE MATCHES "RELEASE")
+     set(AU4_ALLOW_UPDATE_ON_PRERELEASE OFF)
+ endif()
+ 
++###########################################
++# Listening Tree: app name, bundle ID and version
++###########################################
++# Reads config/app.env and VERSION from the Listening Tree repository (LT_ROOT,
++# passed by scripts/build.sh) and renames the app. See cmake/ListeningTree.cmake there.
++include(${LT_ROOT}/cmake/ListeningTree.cmake)
++
+ # Display version number and the release channel (unless it is a release) as the app title
+-set(MUSE_APP_TITLE_VERSION "${MUSE_APP_TITLE} ${MUSE_APP_VERSION_MAJOR}.${MUSE_APP_VERSION_MINOR}")
++# Listening Tree: just the app name (the Audacity version would be misleading here)
++set(MUSE_APP_TITLE_VERSION "${MUSE_APP_TITLE}")
+ 
+ if(NOT MUSE_APP_VERSION_LABEL STREQUAL "")
+     string(APPEND MUSE_APP_TITLE_VERSION " ${MUSE_APP_VERSION_LABEL}")
+diff --git a/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in b/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in
+index 05b4fc0aa4a74c96e589047088b674bacccec3ea..7e5744884520bf82e6e9961bea53d82540fbe3d8 100644
+--- a/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in
++++ b/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in
+@@ -292,7 +292,7 @@
+ 	<key>NSHumanReadableCopyright</key>
+ 	<string>${MACOSX_BUNDLE_COPYRIGHT}</string>        
+         <key>NSMicrophoneUsageDescription</key>
+-        <string>Audacity requires access to the microphone only if you intend to record from it.</string>
++        <string>${MACOSX_BUNDLE_BUNDLE_NAME} needs access to the microphone only if you record from it.</string>
+ 	<key>LSApplicationCategoryType</key>
+ 	<string>public.app-category.music</string>
+ 	<key>ATSApplicationFontsPath</key>
+diff --git a/share/icons/SetupIconComposerIcon.cmake b/share/icons/SetupIconComposerIcon.cmake
+index 16e532043cd69b28cad75990c01b69a5df7de848..212891fd322440db8d712f15c58450158784cbf3 100644
+--- a/share/icons/SetupIconComposerIcon.cmake
++++ b/share/icons/SetupIconComposerIcon.cmake
+@@ -24,6 +24,20 @@ function(get_actool_version output_var)
+     endif()
+ endfunction()
+ 
++# Listening Tree: without Xcode 26's actool, use the prebuilt .icns that sits
++# next to the Icon Composer bundle (AU4_AppIcon.icns) so the app still has an icon.
++function(_lt_use_fallback_icns target icon_path)
++    get_filename_component(_lt_icon_dir ${icon_path} DIRECTORY)
++    set(_lt_icns "${_lt_icon_dir}/AU4_AppIcon.icns")
++    if(NOT EXISTS ${_lt_icns})
++        return()
++    endif()
++    message(STATUS "Using prebuilt app icon ${_lt_icns}")
++    target_sources(${target} PRIVATE ${_lt_icns})
++    set_source_files_properties(${_lt_icns} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
++    set_target_properties(${target} PROPERTIES MACOSX_BUNDLE_ICON_FILE AU4_AppIcon.icns)
++endfunction()
++
+ function(target_setup_iconcomposer_icon target icon_path)
+     get_filename_component(icon_path_ext ${icon_path} EXT)
+     if(NOT EXISTS ${icon_path} OR NOT IS_DIRECTORY ${icon_path} OR NOT icon_path_ext STREQUAL ".icon")
+@@ -33,6 +47,7 @@ function(target_setup_iconcomposer_icon target icon_path)
+ 
+     if(NOT XCRUN)
+         message(WARNING "xcrun not found. Cannot setup Icon Composer icon.")
++        _lt_use_fallback_icns(${target} ${icon_path})
+         return()
+     endif()
+ 
+@@ -41,6 +56,7 @@ function(target_setup_iconcomposer_icon target icon_path)
+     if(NOT "${actool_version}" VERSION_GREATER_EQUAL "26.0")
+         message(WARNING "Could not find actool with version 26.0 or greater."
+             " Icon Composer assets will not be generated.")
++        _lt_use_fallback_icns(${target} ${icon_path})
+         return()
+     endif()
+ 
+diff --git a/src/app/CMakeLists.txt b/src/app/CMakeLists.txt
+index e87b3b7f1338d57b5422f60fb7a8be14d3af3422..bae64818f2c4483143eb1e8345e9c24f30a3f286 100644
+--- a/src/app/CMakeLists.txt
++++ b/src/app/CMakeLists.txt
+@@ -64,10 +64,11 @@ elseif(OS_IS_MAC)
+     set(EXECUTABLE_NAME audacity MACOSX_BUNDLE)
+     set(MACOSX_BUNDLE_GUI_IDENTIFIER ${MUSE_APP_GUI_IDENTIFIER})
+     set(MACOSX_BUNDLE_BUNDLE_NAME ${MUSE_APP_TITLE})
+-    set(MACOSX_BUNDLE_LONG_VERSION_STRING ${MUSE_APP_VERSION})
+-    set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${MUSE_APP_VERSION})
+-    set(MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_BUILD_NUMBER})
+-    set(MACOSX_BUNDLE_COPYRIGHT "Copyright © 1999-2026. Published under the GNU General Public License version 3.")
++    # Listening Tree: the bundle carries Listening Tree's version, not Audacity's
++    set(MACOSX_BUNDLE_LONG_VERSION_STRING "${LT_APP_VERSION} (based on Audacity ${MUSE_APP_VERSION})")
++    set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${LT_APP_VERSION_NUMERIC})
++    set(MACOSX_BUNDLE_BUNDLE_VERSION ${LT_APP_VERSION_NUMERIC})
++    set(MACOSX_BUNDLE_COPYRIGHT "Based on Audacity, copyright © 1999-2026 Audacity Team. Published under the GNU General Public License version 3.")
+ 
+     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${QT_INSTALL_LIBS};@loader_path/../Frameworks")
+ 
+diff --git a/src/app/main.cpp b/src/app/main.cpp
+index 776f53cb381ba9f5cf10068247c552a56890b2d3..8a9e953e452168c6d9f5cc32ef59bbba1cf5218c 100644
+--- a/src/app/main.cpp
++++ b/src/app/main.cpp
+@@ -15,6 +15,7 @@
+ #include "framework/multiwindows/singleinstance.h"
+ 
+ #include "muse_framework_config.h"
++#include "lt_config.h" // Listening Tree: app identity (generated from config/app.env)
+ 
+ #if (defined (_MSCVER) || defined (_MSC_VER))
+ #include <vector>
+@@ -91,11 +92,13 @@ int main(int argc, char** argv)
+     }
+ #endif
+ 
++    // Listening Tree: own settings namespace. Development builds use a separate
++    // one so they never touch the installed app's settings.
+     const char* appName;
+ #ifdef MUSE_APP_UNSTABLE
+-    appName  = "Audacity4Development";
++    appName  = LT_SETTINGS_NAME "Dev";
+ #else
+-    appName  = "Audacity4";
++    appName  = LT_SETTINGS_NAME;
+ #endif
+ 
+ #ifdef Q_OS_WIN
+@@ -110,8 +113,8 @@ int main(int argc, char** argv)
+     QGuiApplication::styleHints()->setMousePressAndHoldInterval(250);
+ 
+     QCoreApplication::setApplicationName(appName);
+-    QCoreApplication::setOrganizationName("Audacity");
+-    QCoreApplication::setOrganizationDomain("audacityteam.org");
++    QCoreApplication::setOrganizationName(LT_ORG_NAME);
++    QCoreApplication::setOrganizationDomain(LT_ORG_DOMAIN);
+     QCoreApplication::setApplicationVersion(MUSE_APP_VERSION);
+ 
+ #if !defined(Q_OS_WIN) && !defined(Q_OS_DARWIN) && !defined(Q_OS_WASM)

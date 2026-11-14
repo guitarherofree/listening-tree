@@ -1,0 +1,32 @@
+# Quick checks on every push and pull request, on a Linux runner (cheap):
+# the patches still apply to the pinned Audacity release, the scripts pass
+# shellcheck, and the update installer behaves (tests/test-install-update.sh).
+
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Patches apply to the pinned Audacity release
+        run: scripts/prepare-source.sh
+
+      - name: Shell scripts
+        run: |
+          shellcheck --version
+          shellcheck -S warning scripts/*.sh scripts/lib/*.sh packaging/macos/*.sh tests/*.sh
+
+      - name: Update installer
+        run: tests/test-install-update.sh
+
+      - name: Release notes exist for the current version
+        run: |
+          . scripts/lib/common.sh
+          [ -n "$(release_notes "$LT_VERSION")" ] || { echo "::error::CHANGELOG.md has no section for $LT_VERSION"; exit 1; }

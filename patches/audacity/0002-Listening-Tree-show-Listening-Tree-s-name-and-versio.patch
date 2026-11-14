@@ -1,0 +1,133 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 13:13:39 -0500
+Subject: [PATCH 2/5] Listening Tree: show Listening Tree's name and version in
+ About and the splash screen
+
+
+diff --git a/src/appshell/internal/splashscreen/loadingscreenview.cpp b/src/appshell/internal/splashscreen/loadingscreenview.cpp
+index 78e7adbab0e224a3251c17d5d569d9f115239b20..eeda31598c866867589c7812e4e44523ae95d997 100644
+--- a/src/appshell/internal/splashscreen/loadingscreenview.cpp
++++ b/src/appshell/internal/splashscreen/loadingscreenview.cpp
+@@ -28,6 +28,7 @@
+ #include <QSvgRenderer>
+ 
+ #include "translation.h"
++#include "lt_config.h" // Listening Tree
+ 
+ using namespace au::appshell;
+ using namespace muse;
+@@ -39,7 +40,7 @@ static constexpr QSize loadingScreenSize(800, 380);
+ static const QColor messageColor("#99FFFFFF");
+ static constexpr QRectF messageRect(loadingScreenSize.width() / 2, 269, 0, 0);
+ 
+-static const QString website("www.audacityteam.org");
++static const QString website("Based on Audacity " LT_AUDACITY_VERSION); // Listening Tree
+ static constexpr QRectF versionRect(38, 322, 0, 0);
+ 
+ static constexpr qreal versionNumberSpacing = 4.0;
+@@ -89,12 +90,12 @@ void LoadingScreenView::draw(QPainter* painter)
+     //                               ? Qt::AlignLeft : Qt::AlignRight;
+ 
+     // Draw version number
+-    pen.setColor(uiConfiguration()->currentTheme().extra["logo_main_color"].value<QColor>());
++    pen.setColor(QColor("#F4E6BE")); // Listening Tree: matches the splash artwork
+     painter->setPen(pen);
+ 
+     QRectF versionBoundingRect;
+     painter->drawText(versionRect, Qt::AlignBottom | alignment | Qt::TextDontClip,
+-                      qtrc("appshell", "Version %1").arg(application()->version().major()),
++                      qtrc("appshell", "Version %1").arg(QStringLiteral(LT_APP_VERSION)),
+                       &versionBoundingRect);
+ 
+     // Draw website URL
+diff --git a/src/appshell/qml/Audacity/AppShell/AboutDialog.qml b/src/appshell/qml/Audacity/AppShell/AboutDialog.qml
+index b18664ab35ac7c045656f23a269e82887f7161a0..ec21c185c2b8f7df3210d7ad3da64824ead251cf 100644
+--- a/src/appshell/qml/Audacity/AppShell/AboutDialog.qml
++++ b/src/appshell/qml/Audacity/AppShell/AboutDialog.qml
+@@ -12,7 +12,7 @@ import Audacity.AppShell
+ StyledDialogView {
+     id: root
+ 
+-    title: qsTrc("appshell/about", "About Audacity")
++    title: qsTrc("appshell/about", "About %1").arg(aboutModel.appName())
+ 
+     contentHeight: 600
+     contentWidth: 720
+@@ -40,7 +40,7 @@ StyledDialogView {
+             spacing: prv.tabButtonSpacing
+ 
+             StyledTabButton {
+-                text: qsTrc("appshell/about", "Audacity")
++                text: aboutModel.appName()
+             }
+ 
+             StyledTabButton {
+diff --git a/src/appshell/qml/Audacity/AppShell/AboutDialogAudacityTab.qml b/src/appshell/qml/Audacity/AppShell/AboutDialogAudacityTab.qml
+index b08bd1f6836aa389eecfe0b6e1001a055c7000d6..fd642e24a9b4c86a11e5523d331a3bbb4a15fdce 100644
+--- a/src/appshell/qml/Audacity/AppShell/AboutDialogAudacityTab.qml
++++ b/src/appshell/qml/Audacity/AppShell/AboutDialogAudacityTab.qml
+@@ -25,7 +25,7 @@ ColumnLayout {
+         readonly property int contentTextMargin: 12
+         readonly property int contentTextSpacing: 8
+ 
+-        readonly property string versionSubtitle: qsTrc("appshell/about", "Audacity the free, open source, cross-platform software for recording and editing sounds.")
++        readonly property string versionSubtitle: qsTrc("appshell/about", "%1 is built on Audacity, the free, open source, cross-platform software for recording and editing sounds.").arg(root.model.appName())
+     }
+ 
+     Image {
+diff --git a/src/appshell/qml/Audacity/AppShell/aboutmodel.cpp b/src/appshell/qml/Audacity/AppShell/aboutmodel.cpp
+index 12ea9aa82796ab2ce14b5b02557ebfe65f3f9600..e0a01ed8c526a7c8d23f696c9016793262684116 100644
+--- a/src/appshell/qml/Audacity/AppShell/aboutmodel.cpp
++++ b/src/appshell/qml/Audacity/AppShell/aboutmodel.cpp
+@@ -9,6 +9,7 @@
+ #include <QVariantList>
+ 
+ #include "framework/global/translation.h"
++#include "lt_config.h" // Listening Tree
+ 
+ using namespace muse;
+ using namespace au::appshell;
+@@ -265,12 +266,18 @@ AboutModel::AboutModel(QObject* parent)
+ {
+ }
+ 
++QString AboutModel::appName() const
++{
++    return QStringLiteral(LT_APP_NAME);
++}
++
+ QString AboutModel::appVersion() const
+ {
+-    const QString version = QString::fromStdString(
+-        (application()->fullVersion().toString() + u"." + application()->build()).toStdString());
++    // Listening Tree: our version, plus the Audacity release it is built on
++    const QString version = muse::qtrc("appshell/about", "Version %1 (based on Audacity %2)")
++                            .arg(QStringLiteral(LT_APP_VERSION), QStringLiteral(LT_AUDACITY_VERSION));
+     return application()->unstable()
+-           ? muse::qtrc("appshell/about", "Unstable prerelease for %1").arg(version)
++           ? muse::qtrc("appshell/about", "%1 – development build").arg(version)
+            : version;
+ }
+ 
+@@ -306,7 +313,7 @@ QVariantMap AboutModel::privacyPolicyUrl() const
+ void AboutModel::copyRevisionToClipboard() const
+ {
+     QApplication::clipboard()->setText(
+-        QString("OS: %1, Arch.: %2, Audacity version (%3-bit): %4-%5, revision: github-audacity-audacity-%6")
++        QString("OS: %1, Arch.: %2, " LT_APP_NAME " " LT_APP_VERSION ", Audacity version (%3-bit): %4-%5, revision: github-audacity-audacity-%6")
+         .arg(QSysInfo::prettyProductName()
+              + ((QSysInfo::productType() == "windows" && (QSysInfo::productVersion() == "10" || QSysInfo::productVersion() == "11"))
+                 ? " or later" : ""))
+diff --git a/src/appshell/qml/Audacity/AppShell/aboutmodel.h b/src/appshell/qml/Audacity/AppShell/aboutmodel.h
+index 337e3a8ab1e3d4010eabe1285b7953f78335e410..b94ae3c1936201acef3031660425f88b7398ec2d 100644
+--- a/src/appshell/qml/Audacity/AppShell/aboutmodel.h
++++ b/src/appshell/qml/Audacity/AppShell/aboutmodel.h
+@@ -30,6 +30,7 @@ class AboutModel : public QObject, public muse::Contextable
+ public:
+     explicit AboutModel(QObject* parent = nullptr);
+ 
++    Q_INVOKABLE QString appName() const; // Listening Tree
+     Q_INVOKABLE QString appVersion() const;
+     Q_INVOKABLE QString appRevision() const;
+     Q_INVOKABLE QVariantMap appUrl() const;

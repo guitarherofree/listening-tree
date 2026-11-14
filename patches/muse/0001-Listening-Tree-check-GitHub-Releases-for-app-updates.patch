@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 13:14:34 -0500
+Subject: [PATCH] Listening Tree: check GitHub Releases for app updates
+
+Builds core/updater/appupdateservice.cpp and github.cpp from the Listening Tree
+repository in place of the upstream update service, and points the update
+configuration at the repository's GitHub Releases.
+
+diff --git a/framework/update/CMakeLists.txt b/framework/update/CMakeLists.txt
+index d0df42680166a8ea30a8f25ba582f369b7e273e8..260b3799afd712052c5db87fcff949d7352d5f23 100644
+--- a/framework/update/CMakeLists.txt
++++ b/framework/update/CMakeLists.txt
+@@ -38,10 +38,23 @@ target_sources(muse_update PRIVATE
+     internal/updateactioncontroller.h
+     internal/appupdatescenario.cpp
+     internal/appupdatescenario.h
+-    internal/appupdateservice.cpp
+     internal/appupdateservice.h
+ )
+ 
++# Listening Tree: updates come from GitHub Releases. appupdateservice.cpp is
++# replaced by the version in the Listening Tree repository (core/updater/).
++target_sources(muse_update PRIVATE
++    ${LT_ROOT}/core/updater/appupdateservice.cpp
++    ${LT_ROOT}/core/updater/github.cpp
++    ${LT_ROOT}/core/updater/github.h
++)
++set_source_files_properties(
++    ${LT_ROOT}/core/updater/appupdateservice.cpp
++    ${LT_ROOT}/core/updater/github.cpp
++    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
++)
++target_include_directories(muse_update PRIVATE ${LT_ROOT}/core/updater)
++
+ if (MUSE_QT_SUPPORT)
+     target_link_libraries(muse_update PRIVATE Qt::Concurrent)
+ endif()
+diff --git a/framework/update/internal/updateconfiguration.cpp b/framework/update/internal/updateconfiguration.cpp
+index 295b23a1ebd866993a81300f3cda1c3f829db82e..03f4d5e7927f865900961a7e9f1e319a8ff370f4 100644
+--- a/framework/update/internal/updateconfiguration.cpp
++++ b/framework/update/internal/updateconfiguration.cpp
+@@ -25,6 +25,8 @@
+ 
+ #include "settings.h"
+ 
++#include "github.h" // Listening Tree: GitHub Releases
++
+ using namespace muse;
+ using namespace muse::update;
+ 
+@@ -100,18 +102,17 @@ bool UpdateConfiguration::checkForUpdateTestMode() const
+     return settings()->value(CHECK_FOR_UPDATE_TEST_MODE_KEY).toBool();
+ }
+ 
++// Listening Tree: the newest release and the release list of the GitHub repository
++// named in config/app.env. ("latest" never returns pre-releases, so with pre-release
++// updates allowed the list is used for notes only.)
+ std::string UpdateConfiguration::checkForAppUpdateUrl() const
+ {
+-    return !allowUpdateOnPreRelease()
+-           ? m_config.value("latest").toString()
+-           : m_config.value("latest.test").toString();
++    return lt::updater::latestReleaseApiUrl().toStdString();
+ }
+ 
+ std::string UpdateConfiguration::previousAppReleasesNotesUrl() const
+ {
+-    return !allowUpdateOnPreRelease()
+-           ? m_config.value("all").toString()
+-           : m_config.value("all.test").toString();
++    return lt::updater::releaseListApiUrl().toStdString();
+ }
+ 
+ muse::network::RequestHeaders UpdateConfiguration::updateHeaders() const
+@@ -121,7 +122,7 @@ muse::network::RequestHeaders UpdateConfiguration::updateHeaders() const
+ 
+ std::string UpdateConfiguration::appWebSiteUrl() const
+ {
+-    return m_config.value("app_website_url").toString();
++    return lt::updater::releasesPageUrl().toStdString(); // Listening Tree
+ }
+ 
+ std::string UpdateConfiguration::privacyPolicyUrl() const
