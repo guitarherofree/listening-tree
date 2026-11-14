@@ -1,6 +1,8 @@
-# Builds a tagged version on GitHub's macOS runners and publishes it as a
-# GitHub release. Started by `scripts/release.sh <version> --ci`, or by hand
-# from the Actions tab (Release > Run workflow) after pushing the tag.
+# Builds a version on GitHub's macOS runners and publishes it as a GitHub
+# release. Started by `scripts/release.sh <version> --ci`, or by hand from the
+# Actions tab (Release > Run workflow): pick the branch or tag to build and
+# enter the version tag. If that tag does not exist yet, the release creates it
+# on the commit that was built.
 #
 # Private repositories pay for macOS runner time at 10x the Linux rate
 # (the free plan includes roughly 200 macOS minutes a month), so this only runs
@@ -12,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag to build and publish, e.g. v0.2.0 (push it first)
+        description: Version tag to publish, e.g. v0.2.0 (must match VERSION; created if missing)
         required: true
       arch:
         description: Which Macs to build for
@@ -37,16 +39,20 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.tag }}
 
-      - name: Check that the tag matches VERSION
+      - name: Check the version and tag
         env:
           TAG: ${{ inputs.tag }}
         run: |
           version="$(tr -d ' \n' < VERSION)"
           if [ "v$version" != "$TAG" ]; then
             echo "::error::VERSION says $version but the tag is $TAG"
+            exit 1
+          fi
+          tagged="$(git ls-remote origin "refs/tags/$TAG^{}" | cut -f1)"
+          [ -n "$tagged" ] || tagged="$(git ls-remote origin "refs/tags/$TAG" | cut -f1)"
+          if [ -n "$tagged" ] && [ "$tagged" != "$GITHUB_SHA" ]; then
+            echo "::error::$TAG already exists on another commit ($tagged). Run this workflow on that tag instead."
             exit 1
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
@@ -62,7 +68,8 @@ jobs:
           DRAFT: ${{ inputs.draft }}
         run: |
           . config/app.env
-          flags=(--title "$APP_NAME $VERSION" --notes-file "dist/release-notes-$VERSION.md" --verify-tag)
+          # Creates the tag on the built commit if it does not exist yet.
+          flags=(--title "$APP_NAME $VERSION" --notes-file "dist/release-notes-$VERSION.md" --target "$GITHUB_SHA")
           if [ "$DRAFT" = true ]; then flags+=(--draft); fi
           case "$VERSION" in *-*) flags+=(--prerelease) ;; esac
           gh release create "$TAG" dist/*.dmg dist/*.dmg.sha256 "${flags[@]}"

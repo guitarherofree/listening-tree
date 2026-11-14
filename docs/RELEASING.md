@@ -40,9 +40,11 @@ scripts/release.sh 0.2.0 --ci
 
 does the same checks, pushes the tag, and starts the **Release** workflow,
 which builds on GitHub's macOS runners and publishes the release. Follow it
-with `gh run watch`. (You can also start it from GitHub › Actions › Release ›
-Run workflow, after pushing a tag.) While the repository is private this uses
-macOS Actions minutes; see [BUILDING.md](BUILDING.md).
+with `gh run watch`. You can also start it from GitHub › Actions › Release ›
+Run workflow: choose the branch (usually `main`) whose `VERSION` you want to
+publish and type the tag (`v0.2.0`); the release creates the tag if it doesn't
+exist yet. While the repository is private this uses macOS Actions minutes;
+see [BUILDING.md](BUILDING.md).
 
 ## Version numbers
 
