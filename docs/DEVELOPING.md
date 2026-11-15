@@ -92,6 +92,17 @@ scripts/save-patches.sh                   # saves the updated patches
 (For a patch in `patches/muse/`, use `git -C work/audacity/muse …`.) To give up
 on a patch instead: `git -C work/audacity am --skip`, then save.
 
+## Default keyboard shortcuts
+
+The default shortcuts are listed in `work/audacity/src/app/configs/data/shortcuts.xml`
+(one `<SC>` entry per command; `Ctrl` there means ⌘ on a Mac). Listening Tree's
+changes to it are in `patches/audacity/0007-Listening-Tree-default-keyboard-shortcuts.patch`;
+edit the file in `work/audacity`, commit, and run `scripts/save-patches.sh` as for
+any patch. When a key is used by two commands, the one whose context is more
+specific wins (a key for "project focused" beats one for "any"), so give a key
+to only one command per context. Users can still change every shortcut in
+Preferences › Shortcuts; their changes are stored separately and win over the defaults.
+
 ## The version number
 
 `VERSION` holds Listening Tree's own version (`MAJOR.MINOR.PATCH`). It is what

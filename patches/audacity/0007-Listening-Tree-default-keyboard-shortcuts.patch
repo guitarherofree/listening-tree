@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 19:26:44 -0500
+Subject: [PATCH] Listening Tree: default keyboard shortcuts
+
+R records, Space plays and stops, Z undoes, Delete deletes, Up and Down zoom
+in and out, Left and Right move the playhead (and jump while playing), I
+imports and E exports. Actions that lost one of these keys get a new one:
+moving between tracks Cmd+Option+Up/Down, select at zero crossings Option+Z,
+loop region in/out Option+I, the effects panel Shift+E. All of them can still
+be changed in Preferences > Shortcuts.
+
+diff --git a/src/app/configs/data/shortcuts.xml b/src/app/configs/data/shortcuts.xml
+index 3a45a551ffba97c2f26238005fa57b33485b46d4..26deb2d53e6c51cc6456204e59e3dc5921e3bd93 100644
+--- a/src/app/configs/data/shortcuts.xml
++++ b/src/app/configs/data/shortcuts.xml
+@@ -96,8 +96,10 @@
+         <key>action://paste</key>
+         <seq>Ctrl+V</seq>
+     </SC>
++    <!-- Listening Tree: Z undoes (Cmd+Z still works) -->
+     <SC>
+         <key>action://undo</key>
++        <seq>Z</seq>
+         <seq>Ctrl+Z</seq>
+     </SC>
+     <SC>
+@@ -141,13 +143,15 @@
+         <seq>Ctrl+Shift+F10</seq>
+     </SC>
+ 
++    <!-- Listening Tree: was Up (now zoom in) -->
+     <SC>
+         <key>track-view-above-item</key>
+-        <seq>Up</seq>
++        <seq>Ctrl+Alt+Up</seq>
+     </SC>
++    <!-- Listening Tree: was Down (now zoom out) -->
+     <SC>
+         <key>track-view-below-item</key>
+-        <seq>Down</seq>
++        <seq>Ctrl+Alt+Down</seq>
+     </SC>
+     <SC>
+         <key>track-view-first-track</key>
+@@ -402,12 +406,16 @@
+     <SC>
+         <key>export-labels</key>
+     </SC>
++    <!-- Listening Tree: E exports audio (Cmd+Shift+E still works) -->
+     <SC>
+         <key>export-audio</key>
++        <seq>E</seq>
+         <seq>Ctrl+Shift+E</seq>
+     </SC>
++    <!-- Listening Tree: I imports audio (Cmd+Shift+I still works) -->
+     <SC>
+         <key>project-import</key>
++        <seq>I</seq>
+         <seq>Ctrl+Shift+I</seq>
+     </SC>
+     <SC>
+@@ -511,9 +519,10 @@
+     <SC>
+         <key>manage-effects</key>
+     </SC>
++    <!-- Listening Tree: was E (now export) -->
+     <SC>
+         <key>add-realtime-effects</key>
+-        <seq>E</seq>
++        <seq>Shift+E</seq>
+     </SC>
+     <SC>
+         <key>get-more-effects</key>
+@@ -590,9 +599,10 @@
+     <SC>
+         <key>store-cursor-position</key>
+     </SC>
++    <!-- Listening Tree: was Z (now undo) -->
+     <SC>
+         <key>zero-cross</key>
+-        <seq>Z</seq>
++        <seq>Alt+Z</seq>
+     </SC>
+     <SC>
+         <key>snap-to-off</key>
+@@ -849,9 +859,10 @@
+         <key>set-loop-region-to-selection</key>
+         <seq>Shift+L</seq>
+     </SC>
++    <!-- Listening Tree: was I (now import) -->
+     <SC>
+         <key>set-loop-region-in-out</key>
+-        <seq>I</seq>
++        <seq>Alt+I</seq>
+     </SC>
+     <SC>
+         <key>rescan-devices</key>
+@@ -928,8 +939,10 @@
+         <key>move-to-next-label</key>
+         <seq>Alt+Right</seq>
+     </SC>
++    <!-- Listening Tree: Up arrow zooms in -->
+     <SC>
+         <key>zoom-in</key>
++        <seq>Up</seq>
+         <seq>Ctrl+=</seq>
+         <seq>Ctrl++</seq>
+         <seq>Ctrl+1</seq>
+@@ -938,8 +951,10 @@
+         <key>zoom-default</key>
+         <seq>Ctrl+2</seq>
+     </SC>
++    <!-- Listening Tree: Down arrow zooms out -->
+     <SC>
+         <key>zoom-out</key>
++        <seq>Down</seq>
+         <seq>Ctrl+-</seq>
+         <seq>Ctrl+3</seq>
+     </SC>
+@@ -1168,9 +1183,9 @@
+         <key>keyboard-scrub-backwards</key>
+         <seq>U</seq>
+     </SC>
++    <!-- Listening Tree: was I (now import) -->
+     <SC>
+         <key>keyboard-scrub-forwards</key>
+-        <seq>I</seq>
+     </SC>
+     <SC>
+         <key>track-view-item-move-left</key>

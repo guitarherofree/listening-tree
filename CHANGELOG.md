@@ -10,6 +10,25 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-14
+
+**New keyboard shortcuts.** Click in the track area first so the keys go to your project.
+
+| Key | Does |
+|---|---|
+| R | Record |
+| Space | Play / stop (also stops recording) |
+| Z | Undo (⌘Z still works) |
+| Delete | Delete the selection |
+| ↑ / ↓ | Zoom in / zoom out on the waveform |
+| ← / → | Move the playhead along the track; while playing, jump back or forward |
+| I | Import audio (⌘⇧I still works) |
+| E | Export audio (⌘⇧E still works) |
+
+Four commands that used these keys moved: going to the track above or below is now ⌘⌥↑ / ⌘⌥↓, the effects panel is ⇧E, "select at zero crossings" is ⌥Z, and "set loop region in/out" is ⌥I.
+
+Every shortcut can be changed in **Preferences › Shortcuts**. If you had already changed some there, use **Reset to default** to pick up these.
+
 ## [0.2.0] - 2026-11-14
 
 - **Check for updates from the main window.** A button next to the Home and Project tabs checks for a new version. When one is available it changes to **Update available**; click it to see what's new and install it. (**Help › Check for update** still works too.)
