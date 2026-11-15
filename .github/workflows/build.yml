@@ -64,6 +64,8 @@ jobs:
           # First-start question about plugins (only on a fresh machine)
           osascript -e 'tell application "System Events" to tell process "audacity" to click button "Skip this time" of window 1' 2>/dev/null && echo "Skipped plugin validation"
           open "$app"
+          sleep 2
+          osascript -e 'tell application "System Events" to key code 53' 2>/dev/null && echo "Pressed Escape"
           sleep 25
           screencapture -x preview/screen.png || echo "screencapture failed"
           sleep 10

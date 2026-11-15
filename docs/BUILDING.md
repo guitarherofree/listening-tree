@@ -55,6 +55,14 @@ allowance at 10× the Linux rate (on the free plan about 200 macOS minutes a
 month; a first build takes roughly an hour, later ones less thanks to the
 compiler cache). Building on your Mac costs nothing.
 
+Tick **preview** when running it to check a change to the look of the app without
+a Mac at hand: the workflow then also starts the app on GitHub's Mac (allowing the
+microphone first, and skipping the first-start plugin question), takes two
+screenshots of the screen, and attaches them with the app's startup log. The
+screenshots (as JPEG, base64) and the log are also printed in the step's own log,
+between `=== BEGIN screen.jpg base64` and `=== END screen.jpg base64`, so they can
+be read with `gh run view <run> --log` where attachments can't be downloaded.
+
 Every push also runs the **Checks** workflow on a cheap Linux runner: it checks
 that the patches still apply to the pinned Audacity release and runs the
 installer tests.
