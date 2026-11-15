@@ -10,6 +10,17 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-15
+
+**A toolbar laid out like Audacity 3's.**
+
+- **Recording and playback meters** across the top, each with its level slider. The recording meter shows your input all the time, so you can set levels before you press Record. The mic button next to it has input monitoring and an option to stop metering when you're not recording. While the input is metered, macOS shows its microphone indicator.
+- **Large transport buttons**: Pause, Play, Stop, Skip to start, Skip to end, Record and Loop.
+- **Selection start and end** next to them (the gear switches the second one to the selection's length), and a **large playback time**.
+- **Audio host, recording device, recording channels and playback device** in a row underneath.
+- The zoom and editing buttons are no longer in the toolbar. Zoom with ↑ / ↓ or the View menu; the split tool is **S**, trim is **⌘T**, and silence is in the Edit menu. The clip gain and spectrogram buttons are gone.
+- The selection bar at the bottom of the window and the playback meter on the right are gone, since both are in the toolbar now.
+
 ## [0.11.0] - 2026-11-15
 
 **Recordings at the right sample rate, and H for the start.**
