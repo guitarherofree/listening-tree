@@ -1,0 +1,197 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 13:25:38 -0500
+Subject: [PATCH] Listening Tree: no audio.com (cloud) features
+
+
+diff --git a/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in b/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in
+index 7e5744884520bf82e6e9961bea53d82540fbe3d8..9cd9e9f6830d135e4760813291eab8034d8ba95d 100644
+--- a/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in
++++ b/buildscripts/packaging/MacOS/MacOSXBundleInfo.plist.in
+@@ -244,19 +244,7 @@
+ 		</dict>
+ 	</array>
+ 
+-    <key>CFBundleURLTypes</key>
+-    <array>
+-        <dict>
+-            <key>CFBundleTypeRole</key>
+-            <string>Editor</string>
+-            <key>CFBundleURLName</key>
+-            <string>org.audacityteam.audacity.audacityurl</string>
+-            <key>CFBundleURLSchemes</key>
+-            <array>
+-                <string>audacity</string>
+-            </array>
+-        </dict>
+-    </array>
++    <!-- Listening Tree: no audacity:// URL scheme; it was for audio.com sign-in and cloud projects -->
+ 
+     <key>ATSApplicationFontsPath</key>
+     <string>fonts</string>
+diff --git a/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp b/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp
+index 5a0354eadc84337a93174f4954447593a3d6083f..55ff532dee528389eb0c59f43b345335dc1ae104 100644
+--- a/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp
++++ b/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp
+@@ -249,16 +249,15 @@ MenuItem* AppMenuModel::makeFileMenu()
+         makeSeparator(),
+ 
+         makeMenuItem("file-save"),
+-        makeMenuItem("file-save-to-cloud"),
+         makeMenuItem("file-save-as"),
+-        makeMenuItem("audacity://cloud/update-audio-preview"),
++        // Listening Tree: no "Save to cloud…" or "Update cloud audio preview" (audio.com)
+ 
+         makeSeparator(),
+ 
+         makeMenuItem("export-audio"),
+         // makeMenu(TranslatableString("appshell-menu-export-other", "&Export other"), makeExportItems(), "menu-export-other"),
+         makeMenuItem("export-labels"),
+-        makeMenuItem("file-share-audio"),
++        // Listening Tree: no "Share audio" (audio.com)
+ 
+         makeSeparator(),
+ 
+diff --git a/src/au3cloud/internal/au3audiocomservice.cpp b/src/au3cloud/internal/au3audiocomservice.cpp
+index 1eea9abf7156906e5f43c0adce2f7e2412b7c5af..ff705cd71f5ebc7b7db7cc645c88ebd8c72421c2 100644
+--- a/src/au3cloud/internal/au3audiocomservice.cpp
++++ b/src/au3cloud/internal/au3audiocomservice.cpp
+@@ -55,7 +55,9 @@ using namespace audacity::cloud::audiocom;
+ 
+ bool Au3AudioComService::enabled() const
+ {
+-    return true;
++    // Listening Tree: no audio.com (cloud) features. With this off, the app hides sharing,
++    // cloud saving and cloud projects, and refuses them if they are asked for anyway.
++    return false;
+ }
+ 
+ namespace {
+diff --git a/src/au3cloud/internal/clouduiactions.cpp b/src/au3cloud/internal/clouduiactions.cpp
+index f1f781df3e05f8e145282caa780cc43673f45b43..43b3c52744cce162bae946d9ad0f56507d7065c6 100644
+--- a/src/au3cloud/internal/clouduiactions.cpp
++++ b/src/au3cloud/internal/clouduiactions.cpp
+@@ -11,7 +11,7 @@ using namespace au::au3cloud;
+ const muse::ui::UiActionList CloudUiActions::m_actions = {
+     muse::ui::UiAction("audacity://cloud/open-project-page",
+                        au::context::UiCtxAny,
+-                       au::context::CTX_ANY,
++                       au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+                        //: Action title: shown as a menu item or a button label; keep it short
+                        muse::TranslatableString("action", "View project on audio.com"),
+                        //: Action description: shown as a tooltip; can be a full sentence
+@@ -19,7 +19,7 @@ const muse::ui::UiActionList CloudUiActions::m_actions = {
+                        ),
+     muse::ui::UiAction("audacity://cloud/open-audio-page",
+                        au::context::UiCtxAny,
+-                       au::context::CTX_ANY,
++                       au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+                        //: Action title: shown as a menu item or a button label; keep it short
+                        muse::TranslatableString("action", "View on audio.com"),
+                        //: Action description: shown as a tooltip; can be a full sentence
+diff --git a/src/preferences/qml/Audacity/Preferences/preferencesmodel.cpp b/src/preferences/qml/Audacity/Preferences/preferencesmodel.cpp
+index 5958027128d6196b997646021a806a73359a93fc..5fc940274a23051e2770a187d8d08a15adc3d041 100644
+--- a/src/preferences/qml/Audacity/Preferences/preferencesmodel.cpp
++++ b/src/preferences/qml/Audacity/Preferences/preferencesmodel.cpp
+@@ -215,10 +215,8 @@ void PreferencesModel::load(const QString& currentPageId)
+         makeItem("music", QT_TRANSLATE_NOOP("preferences", "Music"), IconCode::Code::MUSIC_NOTES,
+                  "Preferences/MusicPreferencesPage.qml"),
+ 
+-#ifdef AU_BUILD_CLOUD_AUDIOCOM
+-        makeItem("export", QT_TRANSLATE_NOOP("preferences", "Export"), IconCode::Code::SHARE_FILE,
+-                 "Preferences/ExportPreferencesPage.qml"),
+-#endif
++        // Listening Tree: no "Export" page; it only held the "How would you like to export/save?"
++        // (computer or audio.com) switches
+ 
+         // makeItem("cloud", QT_TRANSLATE_NOOP("preferences", "Cloud"), IconCode::Code::CLOUD, ""),
+ 
+diff --git a/src/project/internal/opensaveprojectscenario.cpp b/src/project/internal/opensaveprojectscenario.cpp
+index d6917c9531054e1fbe679c080a54dac3eb3ad7cb..7f4fddb2a0261073f60fda6062bac9b49d21c6d8 100644
+--- a/src/project/internal/opensaveprojectscenario.cpp
++++ b/src/project/internal/opensaveprojectscenario.cpp
+@@ -241,13 +241,10 @@ RetVal<muse::io::path_t> OpenSaveProjectScenario::askLocalPath(IAudacityProjectP
+ 
+ RetVal<SaveLocationType> OpenSaveProjectScenario::saveLocationType() const
+ {
+-    bool shouldAsk = configuration()->shouldAskSaveLocationType();
+-    SaveLocationType lastUsed = configuration()->lastUsedSaveLocationType();
+-    if (!shouldAsk && lastUsed != SaveLocationType::Undefined) {
+-        return RetVal<SaveLocationType>::make_ok(lastUsed);
+-    }
+-
+-    return askSaveLocationType();
++    // Listening Tree: projects are always saved on the computer; there is no
++    // "How would you like to save?" (computer or audio.com) question (upstream asks with
++    // askSaveLocationType() unless told not to)
++    return RetVal<SaveLocationType>::make_ok(SaveLocationType::Local);
+ }
+ 
+ RetVal<SaveLocationType> OpenSaveProjectScenario::askSaveLocationType() const
+diff --git a/src/project/internal/projectuiactions.cpp b/src/project/internal/projectuiactions.cpp
+index 2b3a1b65188ccc7bdbe38610af43ead243d4a796..c33f14da93081b50b373e22069d137a08261539f 100644
+--- a/src/project/internal/projectuiactions.cpp
++++ b/src/project/internal/projectuiactions.cpp
+@@ -64,7 +64,7 @@ const UiActionList ProjectUiActions::m_actions = {
+              ),
+     UiAction("audacity://cloud/open-audio-file",
+              au::context::UiCtxAny,
+-             au::context::CTX_ANY,
++             au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+              //: Action title: shown as a menu item or a button label; keep it short
+              TranslatableString("action", "Open"),
+              //: Action description: shown as a tooltip; can be a full sentence
+@@ -72,7 +72,7 @@ const UiActionList ProjectUiActions::m_actions = {
+              ),
+     UiAction("cloud-file-open",
+              au::context::UiCtxAny,
+-             au::context::CTX_ANY,
++             au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+              //: Action title: shown as a menu item or a button label; keep it short
+              TranslatableString("action", "Open"),
+              //: Action description: shown as a tooltip; can be a full sentence
+@@ -742,7 +742,7 @@ const UiActionList ProjectUiActions::m_actions = {
+              ),
+     UiAction("link-account",
+              au::context::UiCtxUnknown,
+-             au::context::CTX_ANY,
++             au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+              //: Action title: shown as a menu item or a button label; keep it short
+              TranslatableString("action", "Link account"),
+              //: Action description: shown as a tooltip; can be a full sentence
+@@ -750,7 +750,7 @@ const UiActionList ProjectUiActions::m_actions = {
+              ),
+     UiAction("file-save-to-cloud",
+              au::context::UiCtxAny,
+-             au::context::CTX_ANY,
++             au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+              //: Action title: shown as a menu item or a button label; keep it short
+              TranslatableString("action", "Save to clo&ud…"),
+              //: Action description: shown as a tooltip; can be a full sentence
+@@ -759,7 +759,7 @@ const UiActionList ProjectUiActions::m_actions = {
+              ),
+     UiAction("file-share-audio",
+              au::context::UiCtxProjectOpened,
+-             au::context::CTX_PROJECT_FOCUSED,
++             au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+              //: Action title: shown as a menu item or a button label; keep it short
+              TranslatableString("action", "Share audio"),
+              //: Action description: shown as a tooltip; can be a full sentence
+@@ -768,7 +768,7 @@ const UiActionList ProjectUiActions::m_actions = {
+              ),
+     UiAction(UPDATE_AUDIO_PREVIEW_ACTION_CODE,
+              au::context::UiCtxAny,
+-             au::context::CTX_ANY,
++             au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+              //: Action title: shown as a menu item or a button label; keep it short
+              TranslatableString("action", "Update cloud audio preview"),
+              //: Action description: shown as a tooltip; can be a full sentence
+@@ -776,7 +776,7 @@ const UiActionList ProjectUiActions::m_actions = {
+              ),
+     UiAction(UPDATE_AUDIO_PREVIEW_FOR_PROJECT_ACTION_CODE,
+              au::context::UiCtxAny,
+-             au::context::CTX_ANY,
++             au::context::CTX_DISABLED /* Listening Tree: no audio.com */,
+              //: Action title: shown as a menu item or a button label; keep it short
+              TranslatableString("action", "Update audio preview"),
+              //: Action description: shown as a tooltip; can be a full sentence

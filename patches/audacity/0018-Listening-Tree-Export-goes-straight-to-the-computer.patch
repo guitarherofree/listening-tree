@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 13:24:28 -0500
+Subject: [PATCH] Listening Tree: Export goes straight to the computer
+
+
+diff --git a/src/project/internal/projectactionscontroller.cpp b/src/project/internal/projectactionscontroller.cpp
+index b8fa124d264370990b2e6035808077cfe0d7f835..05dbedcd121a991996b6a53f91fc3363cb560494 100644
+--- a/src/project/internal/projectactionscontroller.cpp
++++ b/src/project/internal/projectactionscontroller.cpp
+@@ -1675,25 +1675,8 @@ bool ProjectActionsController::dispatchAudioPreviewToWindowWithProject(const mus
+ 
+ void ProjectActionsController::exportAudio()
+ {
+-    if (audioComService()->enabled() && exportConfiguration()->askExportLocationType()) {
+-        muse::UriQuery query(ASK_LOCATION_TYPE_URI);
+-        query.addParam("purpose", Val(std::string("export")));
+-        query.addParam("askAgain", Val(true));
+-
+-        RetVal<Val> rv = interactive()->openSync(query);
+-        if (!rv.ret) {
+-            return;
+-        }
+-
+-        QVariantMap vals = rv.val.toQVariant().toMap();
+-        exportConfiguration()->setAskExportLocationType(vals["askAgain"].toBool());
+-
+-        if (static_cast<SaveLocationType>(vals["locationType"].toInt()) == SaveLocationType::Cloud) {
+-            shareAudio();
+-            return;
+-        }
+-    }
+-
++    // Listening Tree: Export goes straight to exporting to the computer, without asking
++    // "How would you like to export?" (computer or audio.com)
+     interactive()->open(EXPORT_URI);
+ }
+ 

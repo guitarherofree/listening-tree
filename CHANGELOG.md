@@ -10,6 +10,14 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-15
+
+**Export goes straight to your computer, and audio.com is gone.**
+
+- **Export opens the export window right away.** It no longer asks whether to export to your computer or to audio.com.
+- **No more audio.com (cloud) features.** Save to cloud, Update cloud audio preview and Share audio are gone from the File menu and from Preferences › Shortcuts. Saving a new project goes straight to choosing a place on your computer, and the Export page in Preferences (which only held those cloud questions) is gone.
+- **Listening Tree no longer answers `audacity://` web links**, which were for signing in to audio.com. If you also have Audacity installed, those links go to Audacity.
+
 ## [0.9.0] - 2026-11-15
 
 **Recording starts in the right place, and waveforms fill the track.**
