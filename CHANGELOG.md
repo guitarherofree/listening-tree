@@ -10,6 +10,13 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-14
+
+**A cleaner window.**
+
+- **The top toolbar line is gone** (Audio setup, Share audio, Get effects, and the Workspace and Undo/Redo buttons on its right). Pick devices with the Input and Output dropdowns; recording channels and the audio host are in **Preferences › Audio**; undo is still **Z** / **⌘Z** and in the Edit menu.
+- **The Add track button is hidden.** Recording makes its own track; to add one by hand, use **Tracks › Add new**.
+
 ## [0.5.0] - 2026-11-14
 
 **Toolbar, recording and format.**

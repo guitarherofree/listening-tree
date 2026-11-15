@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 21:44:33 -0500
+Subject: [PATCH] Listening Tree: no top toolbar line, no Add track button
+
+
+diff --git a/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml b/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
+index bf9fbbcd58071a65b21930abe19a834243a8e689..31e565e7e3a89f5c73f008c93205bb3bb1bd2c4e 100644
+--- a/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
++++ b/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
+@@ -162,73 +162,9 @@ DockPage {
+ 
+     readonly property var horizontalPanelDropDestinations: [root.panelTopDropDestination, root.panelBottomDropDestination]
+ 
+-    mainToolBars: [
+-        DockToolBar {
+-            id: projectToolBar
+-
+-            objectName: pageModel.projectToolBarName()
+-            title: qsTrc("appshell", "Project toolbar")
+-
+-            floatable: false
+-            closable: false
+-            resizable: false
+-            separatorsVisible: false
+-
+-            alignment: DockToolBarAlignment.Center
+-            contentBottomPadding: 2
+-
+-            compactPriorityOrder: 2
+-
+-            ProjectToolBar {
+-                isCompactMode: projectToolBar.isCompact
+-
+-                navigationPanel.section: root.topToolKeyNavSec
+-                navigationPanel.order: 2
+-            }
+-        },
+-        DockToolBar {
+-            id: workspacesToolBar
+-
+-            objectName: pageModel.workspacesToolBarName()
+-            title: qsTrc("appshell", "Workspaces toolbar")
+-
+-            floatable: false
+-            closable: false
+-            resizable: false
+-            separatorsVisible: false
+-
+-            alignment: DockToolBarAlignment.Right
+-            contentBottomPadding: 2
+-
+-            compactPriorityOrder: 1
+-
+-            WorkspacesToolBar {
+-                isCompactMode: workspacesToolBar.isCompact
+-
+-                navigationPanel.section: root.topToolKeyNavSec
+-                navigationPanel.order: 3
+-            }
+-        },
+-        DockToolBar {
+-            id: undoRedoToolBar
+-
+-            objectName: pageModel.undoRedoToolBarName()
+-            title: qsTrc("appshell", "Undo/redo toolbar")
+-
+-            floatable: false
+-            closable: false
+-            resizable: false
+-            separatorsVisible: false
+-
+-            alignment: DockToolBarAlignment.Right
+-            contentBottomPadding: 2
+-
+-            UndoRedoToolBar {
+-                navigationPanel.section: root.topToolKeyNavSec
+-                navigationPanel.order: 4
+-            }
+-        }
+-    ]
++    // Listening Tree: no top toolbar line (Audio setup, Share audio, Get effects, Workspace,
++    // Undo/Redo). Devices are chosen in the playback toolbar; the rest is in the menus.
++    mainToolBars: []
+ 
+     toolBars: [
+         DockToolBar {
+diff --git a/src/appshell/qml/Audacity/AppShell/WindowContent.qml b/src/appshell/qml/Audacity/AppShell/WindowContent.qml
+index 1afcea3b60d5aeeea22f9162b02c77ca9e855a39..6d31f271770e1e55efa53509c2e285372b0b0255 100644
+--- a/src/appshell/qml/Audacity/AppShell/WindowContent.qml
++++ b/src/appshell/qml/Audacity/AppShell/WindowContent.qml
+@@ -53,39 +53,8 @@ DockWindow {
+         order: 1
+     }
+ 
+-    toolBars: [
+-        DockToolBar {
+-            id: mainToolBar
+-
+-            objectName: "mainToolBar"
+-            title: qsTrc("appshell", "Main toolbar")
+-
+-            floatable: false
+-            closable: false
+-
+-            MainToolBar {
+-                id: toolBar
+-                navigation.section: root.topToolKeyNavSec
+-                navigation.order: 1
+-
+-                currentUri: root.currentPageUri
+-
+-                navigation.onActiveChanged: {
+-                    if (navigation.active) {
+-                        mainToolBar.forceActiveFocus()
+-                    }
+-                }
+-
+-                onSelected: function (uri) {
+-                    api.launcher.open(uri)
+-                }
+-
+-                Component.onCompleted: {
+-                    toolBar.focusOnFirst()
+-                }
+-            }
+-        }
+-    ]
++    // Listening Tree: no window toolbar row (it held the Home/Project page tabs)
++    toolBars: []
+ 
+     pages: [
+         HomePage {
+diff --git a/src/projectscene/qml/Audacity/ProjectScene/trackspanel/TracksTitleBar.qml b/src/projectscene/qml/Audacity/ProjectScene/trackspanel/TracksTitleBar.qml
+index cd6d08aafd0ceb9ad6fea7b867b72029d571df81..fbde7b5c73221ef9f7225f5b72a70e36aa412331 100644
+--- a/src/projectscene/qml/Audacity/ProjectScene/trackspanel/TracksTitleBar.qml
++++ b/src/projectscene/qml/Audacity/ProjectScene/trackspanel/TracksTitleBar.qml
+@@ -132,6 +132,9 @@ Item {
+             FlatButton {
+                 id: addNewTrackBtn
+ 
++                // Listening Tree: hidden; new tracks come from recording or Tracks › Add new
++                visible: false
++
+                 width: root.buttonWidth
+                 height: root.buttonHeight
+ 

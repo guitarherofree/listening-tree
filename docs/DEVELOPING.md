@@ -133,6 +133,8 @@ Each is its own patch in `patches/audacity/`, so it can be changed or dropped al
 | `0011-…continues-the-last-take` | After a take stops, the playhead is at its end; pressing Record without moving it continues on the same track(s) from there | `src/record/internal/recordcontroller.cpp` |
 | `0012-…format…WAV…` | When a Fractal FM3 (preferred) or Neural DSP Nano Cortex is connected, new projects default to its highest sample rate at 24-bit (both are fixed 48 kHz / 24-bit). Applied once per device, so a later choice in Preferences sticks. Exports default to WAV, 24-bit PCM (switched once on existing installs) | `src/au3audio/internal/au3audiodrivercontroller.cpp` (`applyPreferredDeviceDefaults`), `src/importexport/export/internal/exportconfiguration.cpp`, `au3/modules/import-export/mod-pcm/ExportPCM.cpp` |
 
+| `0013-…no-top-toolbar-line…` | No top toolbar line (Audio setup, Share audio, Get effects, Workspace, Undo/Redo) and no window toolbar row (it held the Home/Project tabs, so developer builds lose them too); the **Add track** button in the tracks panel is hidden | `ProjectPage.qml` (`mainToolBars`), `WindowContent.qml` (`toolBars`), `TracksTitleBar.qml` |
+
 To prefer another interface, add its name (lower case) to `LT_PREFERRED_RECORDING_DEVICES`
 in `au3audiodrivercontroller.cpp`.
 
