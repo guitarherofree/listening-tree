@@ -40,10 +40,10 @@ index cf4d6163819137c96097eba5aa881aa5f614a0ae..907d4e7425f1d1a599895ef1e90b4beb
  }
  
 diff --git a/src/au3audio/internal/au3audiodrivercontroller.cpp b/src/au3audio/internal/au3audiodrivercontroller.cpp
-index 7a3ff1596c5719ee23d69abd8a1bd74a60309976..66f05ab7c15ef5b1bc57d68be0533e55019c78ce 100644
+index 7a3ff1596c5719ee23d69abd8a1bd74a60309976..3d8df54f881fa35b5f8a602dc02d5988d57cdd16 100644
 --- a/src/au3audio/internal/au3audiodrivercontroller.cpp
 +++ b/src/au3audio/internal/au3audiodrivercontroller.cpp
-@@ -44,6 +44,13 @@ const muse::Settings::Key DEFAULT_PROJECT_SAMPLE_FORMAT("au3audio", "SamplingRat
+@@ -44,6 +44,16 @@ const muse::Settings::Key DEFAULT_PROJECT_SAMPLE_FORMAT("au3audio", "SamplingRat
  const muse::Settings::Key RECORDING_SOURCE("au3audio", "AudioIO/RecordingSource");
  const muse::Settings::Key RECORDING_SOURCE_INDEX("au3audio", "AudioIO/RecordingSourceIndex");
  const muse::Settings::Key ASIO_USE_DEVICE_SAMPLE_RATE("au3audio", "AudioIO/ASIO/UseDeviceSampleRate");
@@ -53,11 +53,14 @@ index 7a3ff1596c5719ee23d69abd8a1bd74a60309976..66f05ab7c15ef5b1bc57d68be0533e55
 +// Listening Tree: devices whose format becomes the default for new projects when connected,
 +// most preferred first (matched case-insensitively against the device name)
 +constexpr const char* LT_PREFERRED_RECORDING_DEVICES[] = { "fm3", "nano cortex" };
-+constexpr long LT_FALLBACK_SAMPLE_RATE = 48000; // both devices are fixed at 48 kHz / 24-bit
++//! Both devices run at a fixed 48 kHz / 24-bit over USB. The rate is not probed: on macOS
++//! every rate "works" (CoreAudio converts), so the highest one found would be 384 kHz,
++//! which is only the device's 48 kHz upsampled, at 8 times the file size.
++constexpr long LT_DEVICE_SAMPLE_RATE = 48000;
  
  std::string preferredAudioHost(const std::vector<std::string>& hosts)
  {
-@@ -184,6 +191,8 @@ void Au3AudioDriverController::init()
+@@ -184,6 +194,8 @@ void Au3AudioDriverController::init()
      settings()->setLocalValue(INPUT_CHANNELS, muse::Val(inputChannels));
      m_configuration = configurationFromSettings();
  
@@ -66,7 +69,7 @@ index 7a3ff1596c5719ee23d69abd8a1bd74a60309976..66f05ab7c15ef5b1bc57d68be0533e55
      systemAudioDevicesListener()->systemDevicesChanged().onNotify(this, [this]() {
          onSystemDevicesChanged();
      });
-@@ -216,6 +225,8 @@ void Au3AudioDriverController::onSystemDevicesChanged()
+@@ -216,6 +228,8 @@ void Au3AudioDriverController::onSystemDevicesChanged()
          return;
      }
  
@@ -75,16 +78,16 @@ index 7a3ff1596c5719ee23d69abd8a1bd74a60309976..66f05ab7c15ef5b1bc57d68be0533e55
      const auto after = m_configuration;
      const std::string outputDevice = effectiveOutputDevice(after.api, after.outputDevice);
      const std::string inputDevice = effectiveInputDevice(after.api, after.inputDevice);
-@@ -228,6 +239,45 @@ void Au3AudioDriverController::onSystemDevicesChanged()
+@@ -228,6 +242,44 @@ void Au3AudioDriverController::onSystemDevicesChanged()
      }
  }
  
 +void Au3AudioDriverController::applyPreferredDeviceDefaults()
 +{
 +    //! Listening Tree: when a Fractal Audio FM3 is connected (or else a Neural DSP Nano Cortex),
-+    //! new projects default to the best format that device records: its highest sample rate,
-+    //! 24-bit. This is done once per device and rate, so a format chosen afterwards in
-+    //! Preferences sticks until a different preferred device turns up.
++    //! new projects default to the format that device records: 48 kHz, 24-bit. This is done
++    //! once per device and rate, so a format chosen afterwards in Preferences sticks until a
++    //! different preferred device turns up.
 +    const auto& maps = DeviceManager::Instance()->GetInputDeviceMaps();
 +
 +    for (const char* wanted : LT_PREFERRED_RECORDING_DEVICES) {
@@ -96,8 +99,7 @@ index 7a3ff1596c5719ee23d69abd8a1bd74a60309976..66f05ab7c15ef5b1bc57d68be0533e55
 +            continue;
 +        }
 +
-+        const std::vector<long> rates = AudioIOBase::GetSupportedCaptureRates(it->deviceIndex);
-+        const long bestRate = rates.empty() ? LT_FALLBACK_SAMPLE_RATE : *std::max_element(rates.begin(), rates.end());
++        const long bestRate = LT_DEVICE_SAMPLE_RATE;
 +        const std::string marker = wxToStdString(it->deviceString) + " @ " + std::to_string(bestRate);
 +        if (settings()->value(LT_DEVICE_FORMAT_APPLIED).toString() == marker) {
 +            return;
@@ -134,10 +136,10 @@ index ace596144fa24f57ea57ecf8d6ad8f436d0bacfa..a79528f7e0a2ad1a7997a999017578fe
      void refreshInputDeviceSettings(const std::string& api, const audio::AudioDeviceSelection& inputDevice);
  
 diff --git a/src/importexport/export/internal/exportconfiguration.cpp b/src/importexport/export/internal/exportconfiguration.cpp
-index 4f7eb2af556a0fbaf7d4ca26ecb5bd2989dba5f2..d71a17d1257a2db91d05ce4f3e0b5de519ff2fe4 100644
+index 4f7eb2af556a0fbaf7d4ca26ecb5bd2989dba5f2..7aae689d2474f9a882a0bdfcfc19e2b829947d5c 100644
 --- a/src/importexport/export/internal/exportconfiguration.cpp
 +++ b/src/importexport/export/internal/exportconfiguration.cpp
-@@ -51,6 +51,11 @@ static const muse::Settings::Key FFMPEG_FORMAT("au3wrap", "FileFormats/FFmpegFor
+@@ -51,6 +51,14 @@ static const muse::Settings::Key FFMPEG_FORMAT("au3wrap", "FileFormats/FFmpegFor
  
  static const muse::Settings::Key DEFAULT_METADATA(module_name, "importexport/defaultMetadata");
  
@@ -145,11 +147,14 @@ index 4f7eb2af556a0fbaf7d4ca26ecb5bd2989dba5f2..d71a17d1257a2db91d05ce4f3e0b5de5
 +// upstream falls back to, is AIFF.) Existing installs are switched to WAV once.
 +static const std::string LT_DEFAULT_EXPORT_FORMAT("WAV (Microsoft)");
 +static const muse::Settings::Key LT_EXPORT_DEFAULTS_APPLIED(module_name, "importexport/listeningTreeDefaultsApplied");
++// Listening Tree: versions 0.5.0 to 0.10.0 recorded at 384 kHz by mistake, and the export
++// rate is remembered between exports, so it is set back to "follow the audio" once.
++static const muse::Settings::Key LT_EXPORT_RATE_RESET(module_name, "importexport/listeningTreeExportRateReset");
 +
  void ExportConfiguration::init()
  {
      muse::settings()->setDefaultValue(EXPORT_PROCESS, muse::Val(ExportProcessType::FULL_PROJECT_AUDIO));
-@@ -83,6 +88,12 @@ void ExportConfiguration::init()
+@@ -83,10 +91,22 @@ void ExportConfiguration::init()
          m_directoryPathChanged.notify();
      });
  
@@ -162,3 +167,13 @@ index 4f7eb2af556a0fbaf7d4ca26ecb5bd2989dba5f2..d71a17d1257a2db91d05ce4f3e0b5de5
      muse::settings()->valueChanged(EXPORT_FORMAT).onReceive(nullptr, [this] (const muse::Val&) {
          m_currentFormatChanged.notify();
      });
+ 
++    muse::settings()->setDefaultValue(LT_EXPORT_RATE_RESET, muse::Val(false));
++    if (!muse::settings()->value(LT_EXPORT_RATE_RESET).toBool()) {
++        muse::settings()->setSharedValue(EXPORT_SAMPLE_RATE, muse::Val(-1));
++        muse::settings()->setSharedValue(LT_EXPORT_RATE_RESET, muse::Val(true));
++    }
++
+     muse::settings()->setDefaultValue(EXPORT_CHANNELS_TYPE, muse::Val(ExportChannelsPref::ExportChannels::STEREO));
+     muse::settings()->valueChanged(EXPORT_CHANNELS_TYPE).onReceive(nullptr, [this] (const muse::Val&) {
+         m_exportChannelsTypeChanged.notify();

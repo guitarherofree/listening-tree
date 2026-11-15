@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 13:41:40 -0500
+Subject: [PATCH] Listening Tree: H goes to the start
+
+
+diff --git a/src/app/configs/data/shortcuts.xml b/src/app/configs/data/shortcuts.xml
+index 26deb2d53e6c51cc6456204e59e3dc5921e3bd93..661479b16b2c1b530b6484d2b9979cc85fff58e4 100644
+--- a/src/app/configs/data/shortcuts.xml
++++ b/src/app/configs/data/shortcuts.xml
+@@ -657,8 +657,10 @@
+         <key>curs-track-end</key>
+         <seq>K</seq>
+     </SC>
++    <!-- Listening Tree: H goes to the start of the recording, like Home -->
+     <SC>
+         <key>action://playback/rewind-start</key>
++        <seq>H</seq>
+         <seq>Home</seq>
+     </SC>
+     <SC>
+diff --git a/src/playback/internal/playbackcontroller.cpp b/src/playback/internal/playbackcontroller.cpp
+index b1ab0113929c172e05b814ab583de3624a5cf1b2..3b9c1b4ebe182591a79a8502546186fec9f80ce7 100644
+--- a/src/playback/internal/playbackcontroller.cpp
++++ b/src/playback/internal/playbackcontroller.cpp
+@@ -512,6 +512,12 @@ void PlaybackController::playTracksAction(const muse::actions::ActionQuery&)
+ 
+ void PlaybackController::rewindToStartAction()
+ {
++    // Listening Tree: while playing, jump back to the start and keep playing
++    if (isPlaying()) {
++        doSeek(0.0, true);
++        return;
++    }
++
+     //! NOTE: In Audacity 3 we can't rewind while playing
+     stopSeekAndUpdatePlaybackRegion();
+ 
+@@ -1116,7 +1122,12 @@ bool PlaybackController::canReceiveAction(const ActionCode& code) const
+                && (!isStopped() || !selectionController()->timeSelectionIsEmpty());
+     }
+ 
+-    if (code == PLAYBACK_REWIND_START_QUERY.toString() || code == PLAYBACK_REWIND_END_QUERY.toString()) {
++    // Listening Tree: going to the start also works while playing
++    if (code == PLAYBACK_REWIND_START_QUERY.toString()) {
++        return !recordController()->isRecording();
++    }
++
++    if (code == PLAYBACK_REWIND_END_QUERY.toString()) {
+         return !isPlaying() && !recordController()->isRecording();
+     }
+ 

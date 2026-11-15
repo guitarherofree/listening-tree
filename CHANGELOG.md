@@ -10,6 +10,13 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-15
+
+**Recordings at the right sample rate, and H for the start.**
+
+- **Recordings and exports are 48 kHz again.** Since 0.5.0, new projects recorded at 384 kHz by mistake. Your FM3 and Nano Cortex both run at 48 kHz, so the extra samples added nothing but file size (about 8 times bigger). New recordings are now 48 kHz, 24-bit, and Export starts at the rate of your audio. Takes you already recorded at 384 kHz still export at 384 kHz unless you pick 48000 Hz in the export window.
+- **H takes you to the start of the recording**, like the Home key. It also works while playing: playback jumps back to the start and keeps going.
+
 ## [0.10.0] - 2026-11-15
 
 **Export goes straight to your computer, and audio.com is gone.**
