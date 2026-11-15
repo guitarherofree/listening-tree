@@ -41,9 +41,28 @@ jobs:
           set -u
           mkdir -p preview
           app="$(find work -maxdepth 2 -path "work/install-release-*" -name "*.app" | head -1)"
-          echo "Starting $app"
+          bundle_id="$(defaults read "$PWD/$app/Contents/Info" CFBundleIdentifier)"
+
+          # The recording meter opens the input at startup, which makes macOS ask for the
+          # microphone; allow it up front so the question doesn't cover (or hold up) the window
+          now="$(date +%s)"
+          for db in "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "/Library/Application Support/com.apple.TCC/TCC.db"; do
+            if sudo sqlite3 "$db" "INSERT OR REPLACE INTO access VALUES('kTCCServiceMicrophone','$bundle_id',0,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,$now,NULL,NULL,'UNUSED',$now);"; then
+              echo "Microphone allowed in $db"
+            else
+              echo "Could not write $db"
+            fi
+          done
+
+          echo "Starting $app ($bundle_id)"
           open "$app"
-          sleep 45
+          sleep 20
+          # If macOS still asks, answer it
+          for proc in UserNotificationCenter universalAccessAuthWarn tccd SecurityAgent; do
+            osascript -e "tell application \"System Events\" to click button \"Allow\" of window 1 of process \"$proc\"" 2>/dev/null && echo "Clicked Allow ($proc)"
+          done
+          open "$app"
+          sleep 25
           screencapture -x preview/screen.png || echo "screencapture failed"
           sleep 10
           screencapture -x preview/screen-later.png || true
@@ -53,8 +72,8 @@ jobs:
           pkill -f "$app/Contents/MacOS" || true
 
           # Also print them into this log, which (unlike attachments) can be read with gh run view --log
-          echo "=== QML and warning lines from the app log"
-          grep -h -i -E "qml|warn|error|ReferenceError|TypeError" preview/*.log | grep -v -i "shortcut" | head -200 || true
+          echo "=== The app log, without shortcut warnings"
+          grep -h -v -i "shortcut" preview/*.log | head -300 || true
           for shot in screen screen-later; do
             [ -f "preview/$shot.png" ] || continue
             sips -s format jpeg -s formatOptions 70 -Z 1800 "preview/$shot.png" --out "preview/$shot.jpg" >/dev/null
