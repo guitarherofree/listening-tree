@@ -61,6 +61,8 @@ jobs:
           for proc in UserNotificationCenter universalAccessAuthWarn tccd SecurityAgent; do
             osascript -e "tell application \"System Events\" to click button \"Allow\" of window 1 of process \"$proc\"" 2>/dev/null && echo "Clicked Allow ($proc)"
           done
+          # First-start question about plugins (only on a fresh machine)
+          osascript -e 'tell application "System Events" to tell process "audacity" to click button "Skip this time" of window 1' 2>/dev/null && echo "Skipped plugin validation"
           open "$app"
           sleep 25
           screencapture -x preview/screen.png || echo "screencapture failed"

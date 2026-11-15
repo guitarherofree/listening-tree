@@ -5,7 +5,7 @@ Subject: [PATCH] Listening Tree: classic toolbar, like Audacity 3
 
 
 diff --git a/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml b/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
-index 642070922485924e410f0bc921278c912c6613cc..db502d103f75b825cb4fb0c4ba5b13dc785e6854 100644
+index 642070922485924e410f0bc921278c912c6613cc..5fdf72838c329282ba5cea2fca4f04bf8e158d83 100644
 --- a/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
 +++ b/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
 @@ -176,10 +176,13 @@ DockPage {
@@ -14,7 +14,7 @@ index 642070922485924e410f0bc921278c912c6613cc..db502d103f75b825cb4fb0c4ba5b13dc
              minimumWidth: 300
 -            thickness: 48 /* see PlaybackToolBar rowHeight */
 +            // Listening Tree: the classic toolbar has four rows: two meters, transport, devices
-+            thickness: 152 /* ClassicToolBar: 28 + 28 + 48 + 28 px rows, 4 px gaps and margins */
++            thickness: 164 /* ClassicToolBar: 34 + 34 + 48 + 28 px rows, 4 px gaps and margins */
              resizable: true
  
 -            PlaybackToolBar {
@@ -24,7 +24,39 @@ index 642070922485924e410f0bc921278c912c6613cc..db502d103f75b825cb4fb0c4ba5b13dc
                  id: playbackToolBarContent
  
                  floating: playbackToolBar.floating
-@@ -310,19 +313,5 @@ DockPage {
+@@ -227,30 +230,7 @@ DockPage {
+     // Listening Tree: no tracks panel on the left (track names, mute/solo, volume, pan,
+     // realtime effects, Add track). The window shows only the tracks themselves.
+     panels: [
+-        DockPanel {
+-            id: playbackMeterPanel
+-
+-            objectName: pageModel.playbackMeterPanelName()
+-            title: qsTrc("appshell", "Playback meter")
+-
+-            navigationSection: root.navigationPanelSec(playbackMeterPanel.location)
+-
+-            closable: false
+-            floatable: false
+-
+-            width: 56
+-            minimumWidth: 56
+-            maximumWidth: 56
+-
+-            location: Location.Right
+-
+-            visible: false
+-
+-            PlaybackMeterPanel {
+-                navigationSection: playbackMeterPanel.navigationSection
+-                navigationOrderStart: playbackMeterPanel.contentNavigationPanelOrderStart
+-            }
+-        },
++        // Listening Tree: no playback meter side panel; the playback meter is in the toolbar
+         DockPanel {
+             id: historyPanel
+ 
+@@ -310,19 +290,5 @@ DockPage {
          }
      }
  
@@ -99,7 +131,7 @@ index 505595b4d10f9cd052a989d288b5d9730d3307ab..e2a2d5e4919370f7f1269e34a4d16399
  RealtimeEffectListItemButtonBackground 1.0 trackspanel/RealtimeEffectListItemButtonBackground.qml
 diff --git a/src/projectscene/qml/Audacity/ProjectScene/toolbars/ClassicToolBar.qml b/src/projectscene/qml/Audacity/ProjectScene/toolbars/ClassicToolBar.qml
 new file mode 100644
-index 0000000000000000000000000000000000000000..d425e28f9a5dcadde4511d7474575a13c5a6e34e
+index 0000000000000000000000000000000000000000..4da664a7fbf1da84f1629f1585263c6c06fcee55
 --- /dev/null
 +++ b/src/projectscene/qml/Audacity/ProjectScene/toolbars/ClassicToolBar.qml
 @@ -0,0 +1,662 @@
@@ -185,7 +217,7 @@ index 0000000000000000000000000000000000000000..d425e28f9a5dcadde4511d7474575a13
 +
 +        readonly property int margin: 4
 +        readonly property int spacing: 6
-+        readonly property int meterRowHeight: 28
++        readonly property int meterRowHeight: 34
 +        readonly property int transportButtonSize: 44
 +        readonly property int smallButtonSize: 28
 +
@@ -767,10 +799,10 @@ index 0000000000000000000000000000000000000000..d425e28f9a5dcadde4511d7474575a13
 +}
 diff --git a/src/projectscene/qml/Audacity/ProjectScene/toolbars/internal/ClassicMeter.qml b/src/projectscene/qml/Audacity/ProjectScene/toolbars/internal/ClassicMeter.qml
 new file mode 100644
-index 0000000000000000000000000000000000000000..ca6769f14930f6c8b9c93c973bf68e27d233fc4f
+index 0000000000000000000000000000000000000000..27595befb67afb4c6b2dc2a3f13682941ddc16d3
 --- /dev/null
 +++ b/src/projectscene/qml/Audacity/ProjectScene/toolbars/internal/ClassicMeter.qml
-@@ -0,0 +1,189 @@
+@@ -0,0 +1,190 @@
 +/*
 +* Audacity: A Digital Audio Editor
 +*
@@ -802,7 +834,7 @@ index 0000000000000000000000000000000000000000..ca6769f14930f6c8b9c93c973bf68e27
 +
 +    signal volumeLevelChangeRequested(var level)
 +
-+    implicitHeight: 28
++    implicitHeight: 34
 +
 +    function resetMeters() {
 +        leftMeter.reset()
@@ -816,14 +848,14 @@ index 0000000000000000000000000000000000000000..ca6769f14930f6c8b9c93c973bf68e27
 +
 +        anchors.left: parent.left
 +        anchors.top: parent.top
-+        anchors.topMargin: 1
++        anchors.topMargin: 2
 +
 +        width: 10
-+        spacing: 0
++        spacing: 2
 +
 +        Text {
 +            width: parent.width
-+            height: root.stereo ? 8 : 14
++            height: root.stereo ? 8 : 18
 +            text: root.stereo ? "L" : ""
 +            color: ui.theme.fontPrimaryColor
 +            font.pixelSize: 8
@@ -865,7 +897,7 @@ index 0000000000000000000000000000000000000000..ca6769f14930f6c8b9c93c973bf68e27
 +
 +                x: ruler.x + ruler.leftTextMargin
 +                width: ruler.effectiveWidth + leftMeter.overloadTotalSpace
-+                height: root.stereo ? 6 : 14
++                height: root.stereo ? 8 : 18
 +
 +                meterModel: root.meterModel
 +                currentVolumePressure: root.leftPressure
@@ -879,6 +911,7 @@ index 0000000000000000000000000000000000000000..ca6769f14930f6c8b9c93c973bf68e27
 +
 +                x: ruler.x + ruler.leftTextMargin
 +                width: ruler.effectiveWidth + leftMeter.overloadTotalSpace
++                height: 8
 +
 +                visible: root.stereo
 +
@@ -908,7 +941,7 @@ index 0000000000000000000000000000000000000000..ca6769f14930f6c8b9c93c973bf68e27
 +            anchors.right: parent.right
 +            anchors.rightMargin: leftMeter.overloadTotalSpace
 +            anchors.top: parent.top
-+            anchors.topMargin: 1
++            anchors.topMargin: 3
 +
 +            meterModel: root.meterModel
 +            volumeLevel: root.volumeLevel
