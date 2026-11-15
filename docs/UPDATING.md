@@ -22,7 +22,7 @@
      `~/Library/Application Support/ListeningTree/ListeningTree/UpdateBackups/`
      (the newest five backups are kept),
    - replaces the app and moves the old version to the Trash,
-   - opens the new version.
+   - opens the new version, which brings itself to the front.
 
    If anything fails, the old version stays where it was, a message explains
    what happened, and the downloaded disk image is kept so you can install it

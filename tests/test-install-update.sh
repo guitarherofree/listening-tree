@@ -70,6 +70,7 @@ check "settings backed up" 'ls "$DATA"/UpdateBackups/*-before-0.2.0/preferences.
 check "update folder not in backup" '! tar -tzf "$DATA"/UpdateBackups/*-before-0.2.0/app-data.tar.gz | grep -q old.dmg'
 check "disk image removed" '[ ! -e "$T/a.dmg" ]'
 check "app reopened" 'grep -q "open $APP" "$STUB_LOG"'
+check "reopened app told to come to the front" '[ -f "$DATA/update/relaunched-after-update" ]'
 check "no leftovers next to the app" '[ -z "$(ls -A "$HOME/Apps" | grep -v "^Listening Tree.app$")" ]'
 
 echo "a disk image for another app is refused"

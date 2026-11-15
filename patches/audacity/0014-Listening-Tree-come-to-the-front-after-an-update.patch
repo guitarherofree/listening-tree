@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 00:00:45 -0500
+Subject: [PATCH] Listening Tree: come to the front after an update
+
+
+diff --git a/src/appshell/internal/startupscenario.cpp b/src/appshell/internal/startupscenario.cpp
+index a0db6a21a2459daa7ec999d6d3969a2b452019a9..529a7ef3f0a687f5dd895f2827055a4a196eba1d 100644
+--- a/src/appshell/internal/startupscenario.cpp
++++ b/src/appshell/internal/startupscenario.cpp
+@@ -23,6 +23,11 @@
+ #include "startupscenario.h"
+ 
+ #include <QDate>
++#include <QFile>
++#include <QGuiApplication>
++#include <QStandardPaths>
++#include <QTimer>
++#include <QWindow>
+ 
+ #include "framework/global/log.h"
+ #include "framework/global/settings.h"
+@@ -30,11 +35,15 @@
+ 
+ #include "appshell/appshelltypes.h"
+ 
++#include "lt_config.h" // Listening Tree: LT_APP_VERSION
++
+ using namespace au::appshell;
+ using namespace muse::actions;
+ using namespace au::project;
+ 
+ static const muse::Settings::Key LAST_UPDATE_CHECK_DAY_KEY("appshell", "application/lastUpdateCheckRequestDay");
++// Listening Tree: the version that last started, to notice the first start after an update
++static const muse::Settings::Key LT_LAST_STARTED_VERSION_KEY("appshell", "application/listeningTreeLastStartedVersion");
+ 
+ // Listening Tree: no first-launch setup, welcome dialog or Home page at startup; the app
+ // always opens on a project, ready to record.
+@@ -195,6 +204,8 @@ void StartupScenario::onStartupPageOpened(StartupModeType modeType)
+ {
+     TRACEFUNC;
+ 
++    bringToFrontIfReopenedByUpdater();
++
+     if (appUpdateScenario() && appUpdateScenario()->checkInProgress()) {
+         appUpdateScenario()->checkInProgressChanged().onNotify(this, [this, modeType]() {
+             appUpdateScenario()->checkInProgressChanged().disconnect(this);
+@@ -294,6 +305,48 @@ void StartupScenario::restoreLastSession()
+     });
+ }
+ 
++void StartupScenario::bringToFrontIfReopenedByUpdater()
++{
++    //! Listening Tree: after an in-app update, packaging/macos/install-update.sh reopens the app
++    //! from a background script. macOS does not bring an app opened that way to the front, so the
++    //! new version would start hidden behind other windows. The script leaves this marker.
++    //! The first start of a new version counts too, because that version was installed by the
++    //! previous version's script, which may predate the marker.
++    const QString marker = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
++                           + QStringLiteral("/update/relaunched-after-update");
++    const bool reopenedByUpdater = QFile::exists(marker);
++    if (reopenedByUpdater) {
++        QFile::remove(marker);
++    }
++
++    const std::string lastStarted = muse::settings()->value(LT_LAST_STARTED_VERSION_KEY).toString();
++    const bool newVersion = lastStarted != LT_APP_VERSION;
++    if (newVersion) {
++        muse::settings()->setSharedValue(LT_LAST_STARTED_VERSION_KEY, muse::Val(std::string(LT_APP_VERSION)));
++    }
++
++    if (!reopenedByUpdater && !newVersion) {
++        return;
++    }
++
++    // Twice: once the window is up, and again in case the first request came too early
++    for (const int delayMs : { 300, 1500 }) {
++        QTimer::singleShot(delayMs, qApp, [this]() {
++            if (!mainWindow()) {
++                return;
++            }
++            if (QWindow* window = mainWindow()->qWindow()) {
++                if (!window->isVisible()) {
++                    window->show();
++                }
++                // On macOS raising the window also activates the app (Qt's cocoa raise())
++                mainWindow()->requestShowOnFront();
++                window->requestActivate();
++            }
++        });
++    }
++}
++
+ void StartupScenario::startNewProjectIfNoneOpen()
+ {
+     // Listening Tree: there is no Home page, so never leave the window without a project
+diff --git a/src/appshell/internal/startupscenario.h b/src/appshell/internal/startupscenario.h
+index 6fc0cf59a00284d314df69f91737e5170114f083..dcc643fdf1ba1a39f26b31ba13b69c929b894cb6 100644
+--- a/src/appshell/internal/startupscenario.h
++++ b/src/appshell/internal/startupscenario.h
+@@ -35,6 +35,7 @@
+ #include "record/irecordcontroller.h"
+ #include "playback/iplaybackcontroller.h"
+ #include "context/iglobalcontext.h"
++#include "framework/ui/imainwindow.h"
+ 
+ #include "appshell/iappshellconfiguration.h"
+ #include "appshell/internal/isessionsmanager.h"
+@@ -54,6 +55,7 @@ class StartupScenario : public au::appshell::IStartupScenario, public muse::asyn
+     muse::ContextInject<record::IRecordController> recordController { this };
+     muse::ContextInject<playback::IPlaybackController> playbackController { this };
+     muse::ContextInject<au::context::IGlobalContext> globalContext { this };
++    muse::ContextInject<muse::ui::IMainWindow> mainWindow { this };
+ 
+ public:
+     StartupScenario(const muse::modularity::ContextPtr& ctx)
+@@ -87,6 +89,7 @@ private:
+ 
+     void restoreLastSession();
+     void startNewProjectIfNoneOpen();
++    void bringToFrontIfReopenedByUpdater();
+     bool alreadyCheckedForUpdateToday() const;
+     bool isAudioActive() const;
+     void tryCheckForUpdate();

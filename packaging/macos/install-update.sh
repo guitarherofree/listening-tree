@@ -93,6 +93,15 @@ end run
 OSA
 }
 
+# Reopen the app. macOS doesn't bring an app opened from a background script to the front,
+# so it would start behind other windows; the marker tells the app to bring itself forward.
+reopen_app() {
+    if [ -n "$APP_DATA" ]; then
+        mkdir -p "$APP_DATA/update" 2>/dev/null && : >"$APP_DATA/update/relaunched-after-update" 2>/dev/null
+    fi
+    open "$TARGET"
+}
+
 fail() {
     log "ERROR: $*"
     # If the installed version was moved aside and the new one is not in place, put it back.
@@ -106,7 +115,7 @@ The version you had is still installed. The downloaded disk image is at:
 $DMG
 
 Details are in ~/Library/Logs/$APP_LABEL/updates.log"
-    if [ "$RELAUNCH" = 1 ] && [ -d "$TARGET" ]; then open "$TARGET" 2>/dev/null || true; fi
+    if [ "$RELAUNCH" = 1 ] && [ -d "$TARGET" ]; then reopen_app 2>/dev/null || true; fi
     exit 1
 }
 
@@ -302,6 +311,6 @@ detach_image
 if [ "$KEEP_DMG" = 0 ]; then rm -f "$DMG"; fi
 
 if [ "$RELAUNCH" = 1 ]; then
-    open "$TARGET" || log "warning: could not reopen $TARGET"
+    if reopen_app; then log "Reopened $APP_LABEL"; else log "warning: could not reopen $TARGET"; fi
 fi
 exit 0

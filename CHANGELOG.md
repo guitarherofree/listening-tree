@@ -10,6 +10,11 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-15
+
+- **No tracks panel on the left.** The window shows just your tracks. Track names, mute/solo, volume, pan and the realtime effects panel went with it; to add a track by hand, use **Tracks › Add new**.
+- **After an update, the new version comes to the front.** Before, it started behind your other windows, so it looked as if the old version was still running in the background.
+
 ## [0.6.0] - 2026-11-14
 
 **A cleaner window.**
