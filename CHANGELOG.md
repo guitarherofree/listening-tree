@@ -10,6 +10,14 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-15
+
+**Bigger, cleaner waveforms.**
+
+- **No more grid lines behind the tracks.** The track area is a plain background.
+- **Waveforms are larger by default.** Tracks are about twice as tall, and the waveform is drawn on a decibel scale, so quiet recordings fill the track instead of a thin line in the middle. The audio itself is unchanged; this is only how it's drawn.
+- **Prefer the usual waveform shape?** Turn on **View › Show vertical rulers**, click the scale at the left of a track and pick **Linear (amp)**. You can also drag a track's bottom edge to make it taller or shorter.
+
 ## [0.7.0] - 2026-11-15
 
 - **No tracks panel on the left.** The window shows just your tracks. Track names, mute/solo, volume, pan and the realtime effects panel went with it; to add a track by hand, use **Tracks › Add new**.

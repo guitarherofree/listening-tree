@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 00:14:25 -0500
+Subject: [PATCH] Listening Tree: larger waveforms by default
+
+
+diff --git a/src/projectscene/internal/au3/trackrulertypeattachment.cpp b/src/projectscene/internal/au3/trackrulertypeattachment.cpp
+index 6b44fcac23a757a2a4c122764cec4336841ef8ad..7f8e05718ac64de95878c2d60015e251c9f25e9e 100644
+--- a/src/projectscene/internal/au3/trackrulertypeattachment.cpp
++++ b/src/projectscene/internal/au3/trackrulertypeattachment.cpp
+@@ -30,7 +30,10 @@ void TrackRulerTypeAttachment::CopyTo(Au3Track& track) const
+ 
+ TrackRulerTypeAttachment::TrackRulerTypeAttachment(Au3Track& track)
+     : mTrack{track.shared_from_this()}
+-    , mRulerType{TrackRulerType::Linear}
++    // Listening Tree: waveforms default to the logarithmic (dB) scale, so quiet recordings
++    // fill the track instead of a thin band (upstream: Linear). Changeable per track from
++    // the vertical ruler's menu.
++    , mRulerType{TrackRulerType::DbLog}
+ {
+ }
+ 
+diff --git a/src/projectscene/internal/projectviewstate.cpp b/src/projectscene/internal/projectviewstate.cpp
+index 3495fd39f7a17e012fa89a90cab4ba7caed4c623..b297312353514b875ffac8c49e36a00d64107d2c 100644
+--- a/src/projectscene/internal/projectviewstate.cpp
++++ b/src/projectscene/internal/projectviewstate.cpp
+@@ -27,7 +27,8 @@
+ 
+ using namespace au::projectscene;
+ 
+-constexpr int TRACK_DEFAULT_HEIGHT = 116;
++// Listening Tree: new tracks start about twice as tall (upstream 116), for bigger waveforms
++constexpr int TRACK_DEFAULT_HEIGHT = 240;
+ constexpr int TRACK_LABEL_DEFAULT_HEIGHT = 86;
+ constexpr int TRACK_MIN_HEIGHT = 44;
+ constexpr int TRACK_COLLAPSE_HEIGHT = 72;

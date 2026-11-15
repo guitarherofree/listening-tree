@@ -135,6 +135,8 @@ Each is its own patch in `patches/audacity/`, so it can be changed or dropped al
 
 | `0013-…no-top-toolbar-line-no-tracks-panel` | No top toolbar line (Audio setup, Share audio, Get effects, Workspace, Undo/Redo), no window toolbar row (it held the Home/Project tabs, so developer builds lose them too), and no tracks panel on the left (track names, mute/solo, volume, pan, realtime effects, Add track) | `ProjectPage.qml` (`mainToolBars`, `panels`), `WindowContent.qml` (`toolBars`) |
 | `0014-…come-to-the-front-after-an-update` | The first start of a new version, or a start by the updater (marker file `update/relaunched-after-update` in the app data folder, written by `install-update.sh`), raises and activates the window; macOS otherwise leaves an app opened from a background script behind other windows | `src/appshell/internal/startupscenario.cpp` (`bringToFrontIfReopenedByUpdater`) |
+| `0015-…no-grid-lines-behind-the-tracks` | The track area is a plain background without the timeline grid lines, still only as tall as the tracks | `TracksItemsView.qml` (the `Rectangle` that replaced `GridLines`) |
+| `0016-…larger-waveforms-by-default` | New tracks are 240 px tall (upstream 116) and show the waveform on the Logarithmic (dB) scale, so quiet recordings fill the track; tracks keep whatever scale is picked for them from the vertical ruler | `src/projectscene/internal/projectviewstate.cpp` (`TRACK_DEFAULT_HEIGHT`), `src/projectscene/internal/au3/trackrulertypeattachment.cpp` (default `TrackRulerType::DbLog`) |
 
 To prefer another interface, add its name (lower case) to `LT_PREFERRED_RECORDING_DEVICES`
 in `au3audiodrivercontroller.cpp`.

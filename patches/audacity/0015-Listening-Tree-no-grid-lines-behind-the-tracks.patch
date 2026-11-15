@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 00:12:42 -0500
+Subject: [PATCH] Listening Tree: no grid lines behind the tracks
+
+
+diff --git a/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml b/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
+index 237d1ed9e94bec928c4d2d0900ee2a1b312068d5..5daa72c4fa6f58d55f575c3e762c0357f495ab1e 100644
+--- a/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
++++ b/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
+@@ -554,12 +554,13 @@ Rectangle {
+         // track there is plain background instead of empty grid
+         color: ui.theme.backgroundPrimaryColor
+ 
+-        GridLines {
+-            timelineRuler: timeline.ruler
++        // Listening Tree: a plain canvas behind the tracks, without grid lines
++        Rectangle {
+             anchors.top: parent.top
+             anchors.left: parent.left
+             anchors.right: parent.right
+             height: Math.max(0, Math.min(parent.height, tracksModel.totalTracksHeight - tracksItemsView.contentY))
++            color: ui.theme.backgroundQuarternaryColor
+         }
+ 
+         MouseArea {
