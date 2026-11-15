@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 13:07:08 -0500
+Subject: [PATCH] Listening Tree: recording starts at the beginning, or after
+ the existing audio
+
+
+diff --git a/src/record/internal/au3/au3record.cpp b/src/record/internal/au3/au3record.cpp
+index 1879041692ec5ff36e1aaacf46269d15c5b8d43f..a794ef5cd26744d84a2cc476ba646e02dda9754b 100644
+--- a/src/record/internal/au3/au3record.cpp
++++ b/src/record/internal/au3/au3record.cpp
+@@ -372,7 +372,14 @@ muse::Ret Au3Record::start()
+ 
+     Au3Project& project = projectRef();
+ 
+-    double t0 = playbackState()->playbackPosition();
++    // Listening Tree: recording never starts at the cursor. It starts at the beginning of the
++    // timeline, or, when there is audio already, right after the end of it.
++    double t0 = 0.0;
++    for (const Au3WaveTrack* waveTrack : Au3TrackList::Get(project).Any<const Au3WaveTrack>()) {
++        if (waveTrack->GetEndTime() > waveTrack->GetStartTime()) {
++            t0 = std::max(t0, waveTrack->GetEndTime());
++        }
++    }
+     double t1 = DBL_MAX;
+     selectionController()->resetSelectedClips();
+ 
+diff --git a/src/record/internal/recordcontroller.cpp b/src/record/internal/recordcontroller.cpp
+index cd09dccc7b1622da6d6329ba097574a8bc908614..747d902d89c65a440af664c009c35806ea412be2 100644
+--- a/src/record/internal/recordcontroller.cpp
++++ b/src/record/internal/recordcontroller.cpp
+@@ -39,8 +39,7 @@ void RecordController::init()
+         m_isRecordAllowedChanged.notify();
+     });
+ 
+-    record()->recordPositionChanged().onReceive(this, [this](const muse::secs_t& position) {
+-        m_lastRecordPosition = position; // Listening Tree: the end of the take so far
++    record()->recordPositionChanged().onReceive(this, [this](const muse::secs_t&) {
+         if (m_currentRecordStatus == RecordStatus::LeadIn) {
+             setCurrentRecordStatus(RecordStatus::Running);
+         }
+@@ -116,7 +115,7 @@ void RecordController::start()
+     }
+ 
+     stopPlaybackIfPaused();
+-    continueLastTakeIfAtItsEnd();
++    continueOnLastTakeTracks();
+ 
+     Ret ret = record()->start();
+     if (!ret) {
+@@ -339,20 +338,14 @@ void RecordController::rememberLastTake()
+             m_lastTakeTrackIds.push_back(key.trackId);
+         }
+     }
+-    m_lastTakeEnd = m_lastTakeTrackIds.empty() ? muse::secs_t(-1.0) : m_lastRecordPosition;
+ }
+ 
+-void RecordController::continueLastTakeIfAtItsEnd()
++void RecordController::continueOnLastTakeTracks()
+ {
+-    //! NOTE: when a take stops, the playhead moves to where it ended (Au3Record). If nothing has
+-    //! moved the playhead since, recording again carries on from there on the same track(s),
+-    //! whichever tracks have been selected in the meantime. Anywhere else, the usual rules apply.
+-    if (m_lastTakeTrackIds.empty() || m_lastTakeEnd < muse::secs_t(0.0)) {
+-        return;
+-    }
+-
+-    const muse::secs_t playhead = globalContext()->playbackState()->playbackPosition();
+-    if (std::abs(playhead.raw() - m_lastTakeEnd.raw()) > 0.001) {
++    //! NOTE: recording always starts after the existing audio (Au3Record::start), and goes on
++    //! the same track(s) as the last take, wherever the cursor is and whichever tracks have
++    //! been selected in the meantime. Without a last take, the usual rules pick the tracks.
++    if (m_lastTakeTrackIds.empty()) {
+         return;
+     }
+ 
+@@ -377,7 +370,6 @@ void RecordController::continueLastTakeIfAtItsEnd()
+ void RecordController::onProjectChanged()
+ {
+     m_lastTakeTrackIds.clear(); // Listening Tree
+-    m_lastTakeEnd = -1.0;
+ 
+     au::project::IAudacityProjectPtr prj = globalContext()->currentProject();
+     if (prj) {
+diff --git a/src/record/internal/recordcontroller.h b/src/record/internal/recordcontroller.h
+index c138b9f4fba7eaf7143333c481fb914309769783..95415f5a503d86abd5c6341d2d4ebd6becd3daef 100644
+--- a/src/record/internal/recordcontroller.h
++++ b/src/record/internal/recordcontroller.h
+@@ -95,7 +95,7 @@ private:
+ 
+     // Listening Tree: recording again continues the last take, on the same track(s)
+     void rememberLastTake();
+-    void continueLastTakeIfAtItsEnd();
++    void continueOnLastTakeTracks();
+ 
+     muse::async::Notification m_isRecordingChanged;
+     muse::async::Notification m_isRecordAllowedChanged;
+@@ -107,8 +107,6 @@ private:
+     muse::secs_t m_leadInRecordingStartTime = 0.0;
+     std::vector<trackedit::TrackId> m_leadInRecordingTrackIds;
+ 
+-    muse::secs_t m_lastRecordPosition = 0.0;
+-    muse::secs_t m_lastTakeEnd = -1.0;
+     std::vector<trackedit::TrackId> m_lastTakeTrackIds;
+ };
+ }

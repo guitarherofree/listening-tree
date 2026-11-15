@@ -10,6 +10,15 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-15
+
+**Recording starts in the right place, and waveforms fill the track.**
+
+- **Recording starts at the beginning, or right after what you've already recorded.** It no longer starts wherever the cursor is. In a new project it starts at 0:00; once there's a take, pressing Record again carries on from the end of it, on the same track.
+- **Waveforms fill the track.** The view zooms in so the loudest part of a take reaches nearly the top and bottom of the track, so quiet recordings look as big as loud ones. It keeps up while you record, and refits when you stop. Only the view changes; the audio is untouched.
+- **A new track fills the window.** It's as tall as the track area, so there's no empty space below it. You can still drag a track's bottom edge to resize it.
+- **Back to the normal waveform shape.** The decibel scale from 0.8.0 is gone, since the zoom does the job better.
+
 ## [0.8.0] - 2026-11-15
 
 **Bigger, cleaner waveforms.**

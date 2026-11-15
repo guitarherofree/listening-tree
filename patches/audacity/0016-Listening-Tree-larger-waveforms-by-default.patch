@@ -4,33 +4,347 @@ Date: Sun, 15 Nov 2026 00:14:25 -0500
 Subject: [PATCH] Listening Tree: larger waveforms by default
 
 
-diff --git a/src/projectscene/internal/au3/trackrulertypeattachment.cpp b/src/projectscene/internal/au3/trackrulertypeattachment.cpp
-index 6b44fcac23a757a2a4c122764cec4336841ef8ad..7f8e05718ac64de95878c2d60015e251c9f25e9e 100644
---- a/src/projectscene/internal/au3/trackrulertypeattachment.cpp
-+++ b/src/projectscene/internal/au3/trackrulertypeattachment.cpp
-@@ -30,7 +30,10 @@ void TrackRulerTypeAttachment::CopyTo(Au3Track& track) const
- 
- TrackRulerTypeAttachment::TrackRulerTypeAttachment(Au3Track& track)
-     : mTrack{track.shared_from_this()}
--    , mRulerType{TrackRulerType::Linear}
-+    // Listening Tree: waveforms default to the logarithmic (dB) scale, so quiet recordings
-+    // fill the track instead of a thin band (upstream: Linear). Changeable per track from
-+    // the vertical ruler's menu.
-+    , mRulerType{TrackRulerType::DbLog}
- {
- }
- 
 diff --git a/src/projectscene/internal/projectviewstate.cpp b/src/projectscene/internal/projectviewstate.cpp
-index 3495fd39f7a17e012fa89a90cab4ba7caed4c623..b297312353514b875ffac8c49e36a00d64107d2c 100644
+index 3495fd39f7a17e012fa89a90cab4ba7caed4c623..b57bb78d17405436474d1d1deda20184c42ebd0a 100644
 --- a/src/projectscene/internal/projectviewstate.cpp
 +++ b/src/projectscene/internal/projectviewstate.cpp
-@@ -27,7 +27,8 @@
+@@ -2,8 +2,11 @@
+ * Audacity: A Digital Audio Editor
+ */
+ 
++#include <algorithm>
++#include <cmath>
+ #include <memory>
+ 
++#include <QDateTime>
+ #include <QEvent>
+ #include <QKeyEvent>
+ 
+@@ -23,11 +26,16 @@
+ #include "au3/trackrulertypeattachment.h"
+ #include "au3/trackviewtypeattachment.h"
+ 
++#include "au3-wave-track/WaveChannelUtilities.h"
++#include "au3-wave-track/WaveTrack.h"
++
+ #include "projectviewstate.h"
  
  using namespace au::projectscene;
  
 -constexpr int TRACK_DEFAULT_HEIGHT = 116;
-+// Listening Tree: new tracks start about twice as tall (upstream 116), for bigger waveforms
++// Listening Tree: new audio tracks fill the visible track area (newAudioTrackHeight), and are
++// never shorter than this (upstream 116)
 +constexpr int TRACK_DEFAULT_HEIGHT = 240;
  constexpr int TRACK_LABEL_DEFAULT_HEIGHT = 86;
  constexpr int TRACK_MIN_HEIGHT = 44;
  constexpr int TRACK_COLLAPSE_HEIGHT = 72;
+@@ -164,6 +172,29 @@ int getTrackRulerType(const std::shared_ptr<au::project::IAudacityProject>& proj
+     return static_cast<int>(cache.GetRulerType());
+ }
+ 
++// Listening Tree: the loudest sample of a wave track (0 when it holds no audio)
++float trackPeak(const std::shared_ptr<au::project::IAudacityProject>& project, const au::trackedit::TrackId& trackId)
++{
++    const au::au3::Au3Project* au3Project = reinterpret_cast<const au::au3::Au3Project*>(project->au3ProjectPtr());
++    const au::au3::Au3WaveTrack* waveTrack = au::au3::DomAccessor::findWaveTrack(*au3Project, au::au3::Au3TrackId(trackId));
++    if (waveTrack == nullptr) {
++        return 0.0f;
++    }
++
++    const double t0 = waveTrack->GetStartTime();
++    const double t1 = waveTrack->GetEndTime();
++    if (!(t1 > t0)) {
++        return 0.0f;
++    }
++
++    float peak = 0.0f;
++    for (const auto pChannel : waveTrack->Channels()) {
++        const auto [minValue, maxValue] = WaveChannelUtilities::GetMinMax(*pChannel, t0, t1, false);
++        peak = std::max({ peak, std::fabs(minValue), std::fabs(maxValue) });
++    }
++    return peak;
++}
++
+ void setTrackRulerType(const std::shared_ptr<au::project::IAudacityProject>& project, const au::trackedit::TrackId& trackId, int rulerType)
+ {
+     au::au3::Au3Project* au3Project = reinterpret_cast<au::au3::Au3Project*>(project->au3ProjectPtr());
+@@ -245,10 +276,133 @@ void ProjectViewState::init(const std::shared_ptr<au3::IAu3Project>& project)
+         // Tracks already present on open don't trigger trackAdded / trackInserted
+         // So the total height must be computed here
+         recomputeTotalTrackHeight();
++
++        fitAllTracksToAudio(); // Listening Tree
+     });
+ 
+     projectHistory()->historyChanged().onReceive(this, [this](auto) {
+         updateItemsBoundaries(false);
++        fitAllTracksToAudio(); // Listening Tree: imports, edits and finished takes
++    });
++
++    subscribeToRecordingForFit(); // Listening Tree
++}
++
++int ProjectViewState::newAudioTrackHeight() const
++{
++    //! NOTE the horizontal scrollbar overlaps the bottom of the track area when it shows
++    constexpr int SCROLLBAR_ALLOWANCE = 14;
++    return std::max(TRACK_DEFAULT_HEIGHT, m_tracksViewportHeight - SCROLLBAR_ALLOWANCE);
++}
++
++void ProjectViewState::setTracksViewportHeight(int height)
++{
++    m_tracksViewportHeight = height;
++}
++
++void ProjectViewState::fitVerticalZoomToAudio(const trackedit::TrackId& trackId, FitMode mode)
++{
++    constexpr float HEADROOM = 1.12f;    // the loudest peak reaches about 90% of the way to the edge
++    constexpr float MIN_BOUND = 0.01f;   // -40 dBFS: anything quieter is noise, not worth zooming into
++    constexpr float FULL_SCALE = 1.0f;
++    constexpr float TOLERANCE = 0.02f;   // ignore changes under 2%, so the view doesn't flicker
++
++    const auto project = globalContext()->currentProject();
++    if (!project) {
++        return;
++    }
++
++    // A dB scale picked by hand on the vertical ruler stays as it is
++    if (static_cast<trackedit::TrackRulerType>(::getTrackRulerType(project, trackId)) != trackedit::TrackRulerType::Linear) {
++        return;
++    }
++
++    const float peak = trackPeak(project, trackId);
++    if (peak <= 0.0f) {
++        return;
++    }
++
++    const float bound = std::clamp(peak * HEADROOM, MIN_BOUND, FULL_SCALE);
++
++    auto it = m_tracks.find(trackId);
++    TrackData& d = it != m_tracks.end() ? it->second : makeTrackData(trackId);
++
++    const auto [au3Min, au3Max] = getVerticalDisplayBounds(project, trackId);
++    const float viewMax = d.verticalDisplayBounds.val.second;
++
++    if (mode == FitMode::IfNeeded) {
++        const bool untouchedDefault = muse::RealIsEqual(au3Min, -1.0f) && muse::RealIsEqual(au3Max, 1.0f);
++        const bool audioOutgrewZoom = bound > au3Max * (1.0f + TOLERANCE);
++        if (!untouchedDefault && !audioOutgrewZoom) {
++            return;
++        }
++    }
++
++    const bool sameAsAu3 = std::fabs(bound - au3Max) <= au3Max * TOLERANCE;
++    const bool sameAsView = std::fabs(bound - viewMax) <= viewMax * TOLERANCE;
++    if (sameAsAu3 && sameAsView) {
++        return;
++    }
++
++    const bool halfWave = muse::RealIsEqual(au3Min, 0.0f);
++    const std::pair<float, float> newBounds = { halfWave ? 0.0f : -bound, bound };
++    setVerticalDisplayBounds(project, trackId, newBounds);
++    d.verticalDisplayBounds.set(newBounds);
++    m_verticalRulerWidth.set(calculateVerticalRulerWidth());
++}
++
++void ProjectViewState::fitAllTracksToAudio()
++{
++    const trackedit::ITrackeditProjectPtr prj = globalContext()->currentTrackeditProject();
++    if (!prj) {
++        return;
++    }
++
++    for (const trackedit::TrackId& trackId : prj->trackIdList()) {
++        const bool justRecorded = m_justRecordedTracks.count(trackId) > 0;
++        fitVerticalZoomToAudio(trackId, justRecorded ? FitMode::Always : FitMode::IfNeeded);
++    }
++    m_justRecordedTracks.clear();
++}
++
++void ProjectViewState::subscribeToRecordingForFit()
++{
++    if (!record()) {
++        return;
++    }
++
++    //! NOTE while recording, the track being recorded is refitted a few times a second,
++    //! so the take grows to fill the track as it gets louder
++    record()->recordPositionChanged().onReceive(this, [this](const muse::secs_t&) {
++        constexpr qint64 LIVE_FIT_INTERVAL_MS = 250;
++        const qint64 now = QDateTime::currentMSecsSinceEpoch();
++        if (now - m_lastLiveFitMs < LIVE_FIT_INTERVAL_MS) {
++            return;
++        }
++        m_lastLiveFitMs = now;
++
++        for (const trackedit::ClipKey& key : record()->recordingClipKeys()) {
++            if (key.trackId == trackedit::INVALID_TRACK) {
++                continue;
++            }
++            m_justRecordedTracks.insert(key.trackId);
++            fitVerticalZoomToAudio(key.trackId, FitMode::Always);
++        }
++    });
++
++    //! NOTE committing the take (a history change, just before this) already refits the tracks
++    //! recorded on; once the recording has fully stopped, they are refitted once more
++    record()->recordingFinished().onNotify(this, [this]() {
++        for (const trackedit::ClipKey& key : record()->recordingClipKeys()) {
++            if (key.trackId != trackedit::INVALID_TRACK) {
++                m_justRecordedTracks.insert(key.trackId);
++            }
++        }
++        m_lastLiveFitMs = 0;
++
++        muse::async::Async::call(this, [this]() {
++            fitAllTracksToAudio();
++        });
+     });
+ }
+ 
+@@ -343,7 +497,7 @@ ProjectViewState::TrackData& ProjectViewState::makeTrackData(const trackedit::Tr
+         std::optional<trackedit::Track> track = trackeditPrj->track(trackId);
+         if (track) {
+             d.channelHeightRatio.val = track->type == trackedit::TrackType::Stereo ? 0.5 : 1.0;
+-            int defaultHeight = track->type == trackedit::TrackType::Label ? TRACK_LABEL_DEFAULT_HEIGHT : TRACK_DEFAULT_HEIGHT;
++            int defaultHeight = track->type == trackedit::TrackType::Label ? TRACK_LABEL_DEFAULT_HEIGHT : newAudioTrackHeight();
+ 
+             int height = defaultHeight;
+ 
+diff --git a/src/projectscene/internal/projectviewstate.h b/src/projectscene/internal/projectviewstate.h
+index c29cfb5bcee6cff75ff965ba70b466c443a9dc05..f30ee0550155758d36b2401877f7fa5e7135e153 100644
+--- a/src/projectscene/internal/projectviewstate.h
++++ b/src/projectscene/internal/projectviewstate.h
+@@ -11,6 +11,7 @@
+ #include "trackedit/iselectioncontroller.h"
+ #include "trackedit/iprojecthistory.h"
+ #include "spectrogram/ifrequencyselectioncontroller.h"
++#include "record/irecord.h"
+ #include "../iprojectsceneconfiguration.h"
+ 
+ #include "au3wrap/iau3project.h"
+@@ -29,6 +30,7 @@ class ProjectViewState : public QObject, public IProjectViewState, public muse::
+     muse::ContextInject<trackedit::ISelectionController> selectionController{ this };
+     muse::ContextInject<spectrogram::IFrequencySelectionController> frequencySelectionController{ this };
+     muse::ContextInject<trackedit::IProjectHistory> projectHistory{ this };
++    muse::ContextInject<record::IRecord> record{ this };
+ 
+ public:
+     ProjectViewState(const muse::modularity::ContextPtr& ctx);
+@@ -134,6 +136,7 @@ public:
+     muse::async::Notification modifiersReleased() const override;
+ 
+     int trackDefaultHeight() const override;
++    void setTracksViewportHeight(int height) override;
+ 
+ private:
+     friend class ProjectViewStateTests;
+@@ -155,6 +158,20 @@ private:
+     mutable muse::ValCh<int> m_verticalRulerWidth;
+ 
+     TrackData& makeTrackData(const trackedit::TrackId& trackId) const;
++
++    // Listening Tree: bigger waveforms. New audio tracks fill the visible track area, and each
++    // track's vertical zoom fits its loudest point, so quiet recordings fill the track.
++    enum class FitMode {
++        Always,     //!< refit to the audio, also to zoom back out (recording, a finished take)
++        IfNeeded    //!< only at the untouched default zoom, or when the audio outgrew the zoom
++    };
++    int newAudioTrackHeight() const;
++    void fitVerticalZoomToAudio(const trackedit::TrackId& trackId, FitMode mode);
++    void fitAllTracksToAudio();
++    void subscribeToRecordingForFit();
++    int m_tracksViewportHeight = 0;
++    std::set<trackedit::TrackId> m_justRecordedTracks;
++    qint64 m_lastLiveFitMs = 0;
+     void recomputeTotalTrackHeight();
+     bool doSetTrackViewType(const trackedit::TrackId& trackId, trackedit::TrackViewType viewType);
+ 
+diff --git a/src/projectscene/iprojectviewstate.h b/src/projectscene/iprojectviewstate.h
+index a69ef5aa572dd28ec47ba85a71fac2a326a61325..26ddaea7103daf0bb22a84cc922a86e2af08694a 100644
+--- a/src/projectscene/iprojectviewstate.h
++++ b/src/projectscene/iprojectviewstate.h
+@@ -118,6 +118,9 @@ public:
+     virtual muse::async::Notification modifiersReleased() const = 0;
+ 
+     virtual int trackDefaultHeight() const = 0;
++
++    //! Listening Tree: the height of the visible track area, so new audio tracks can fill it
++    virtual void setTracksViewportHeight(int /*height*/) {}
+ };
+ 
+ using IProjectViewStatePtr = std::shared_ptr<IProjectViewState>;
+diff --git a/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml b/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
+index 5daa72c4fa6f58d55f575c3e762c0357f495ab1e..10777a476dfb25fb37ead6da4cf461c0b9a4f79e 100644
+--- a/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
++++ b/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
+@@ -36,6 +36,16 @@ Rectangle {
+     property bool guidelineVisible: false
+     property double guidelinePos: -1
+ 
++    // Listening Tree: room to scroll past the last track only once the tracks overflow the view,
++    // so a track that fills the view stays put
++    function tracksContentHeight() {
++        let tracksHeight = tracksModel.totalTracksHeight
++        if (tracksHeight <= tracksItemsView.height) {
++            return tracksHeight
++        }
++        return tracksHeight + tracksViewState.tracksVerticalScrollPadding
++    }
++
+     property alias altPressed: tracksViewState.altPressed
+     property alias ctrlPressed: tracksViewState.ctrlPressed
+     property alias isSplitMode: splitToolController.active
+@@ -128,7 +138,7 @@ Rectangle {
+         id: tracksModel
+ 
+         onTotalTracksHeightChanged: {
+-            let totalContentHeight = tracksModel.totalTracksHeight + tracksViewState.tracksVerticalScrollPadding
++            let totalContentHeight = root.tracksContentHeight()
+             timeline.context.onResizeFrameContentHeight(totalContentHeight)
+ 
+             let maxContentY = Math.max(totalContentHeight - tracksItemsView.height, 0)
+@@ -858,13 +868,14 @@ Rectangle {
+ 
+                 onHeightChanged: {
+                     timeline.context.onResizeFrameHeight(tracksItemsView.height)
++                    timeline.context.onResizeFrameContentHeight(root.tracksContentHeight()) // Listening Tree
+                 }
+ 
+                 Connections {
+                     target: timeline.context
+ 
+                     function onViewContentYChangeRequested(delta) {
+-                        let totalContentHeight = tracksModel.totalTracksHeight + tracksViewState.tracksVerticalScrollPadding
++                        let totalContentHeight = root.tracksContentHeight()
+                         let canMove = totalContentHeight > tracksItemsView.height
+                         if (!canMove) {
+                             return
+diff --git a/src/projectscene/view/timeline/timelinecontext.cpp b/src/projectscene/view/timeline/timelinecontext.cpp
+index 79ab53f110579ccec6b80d0026a24d01783a03b0..5fd5aee563a096b67d9d88dbd7652df78b06951a 100644
+--- a/src/projectscene/view/timeline/timelinecontext.cpp
++++ b/src/projectscene/view/timeline/timelinecontext.cpp
+@@ -445,6 +445,11 @@ void TimelineContext::onResizeFrameWidth(double frameWidth)
+ void TimelineContext::onResizeFrameHeight(double frameHeight)
+ {
+     m_frameHeight = frameHeight;
++
++    // Listening Tree: new audio tracks fill the visible track area
++    if (const auto vs = viewState(); vs && m_frameHeight > 0) {
++        vs->setTracksViewportHeight(static_cast<int>(m_frameHeight));
++    }
+ }
+ 
+ void TimelineContext::onResizeFrameContentHeight(double frameHeight)
+@@ -539,6 +544,11 @@ IProjectViewStatePtr TimelineContext::viewState() const
+ 
+ void TimelineContext::onProjectChanged()
+ {
++    // Listening Tree: new audio tracks fill the visible track area
++    if (const auto vs = viewState(); vs && m_frameHeight > 0) {
++        vs->setTracksViewportHeight(static_cast<int>(m_frameHeight));
++    }
++
+     auto project = globalContext()->currentTrackeditProject();
+     if (!project) {
+         return;
