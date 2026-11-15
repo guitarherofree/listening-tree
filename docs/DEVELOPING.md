@@ -96,7 +96,7 @@ on a patch instead: `git -C work/audacity am --skip`, then save.
 
 The default shortcuts are listed in `work/audacity/src/app/configs/data/shortcuts.xml`
 (one `<SC>` entry per command; `Ctrl` there means ⌘ on a Mac). Listening Tree's
-changes to it are in `patches/audacity/0007-Listening-Tree-default-keyboard-shortcuts.patch`;
+changes to it are in `patches/audacity/0006-Listening-Tree-default-keyboard-shortcuts.patch`;
 edit the file in `work/audacity`, commit, and run `scripts/save-patches.sh` as for
 any patch. When a key is used by two commands, the one whose context is more
 specific wins (a key for "project focused" beats one for "any"), so give a key
@@ -109,7 +109,7 @@ Listening Tree always opens on a project, ready to record. There is no welcome
 dialog, no first-launch setup (theme, clip style and layout keep their defaults and
 can be changed in Preferences) and no Home page with its project list: open
 projects with **File › Open** or **File › Open recent**. The code is in
-`patches/audacity/0008-Listening-Tree-open-straight-into-a-new-project-with.patch`:
+`patches/audacity/0007-Listening-Tree-open-straight-into-a-new-project-with.patch`:
 
 - `src/appshell/internal/startupscenario.cpp` decides what happens at launch:
   a new, empty project unless the app was opened with a file, or it offers to
@@ -120,6 +120,21 @@ projects with **File › Open** or **File › Open recent**. The code is in
   without asking to save, and opening a project or file replaces it instead of
   opening a second window.
 - The Home and Project tabs only appear in developer mode, next to DevTools.
+
+## Recording, toolbar and format defaults
+
+Each is its own patch in `patches/audacity/`, so it can be changed or dropped alone:
+
+| Patch | What it does | Where |
+|---|---|---|
+| `0008-…device-dropdowns…` | **Input** and **Output** dropdowns in the playback toolbar, where the snap control was (snap is no longer shown there, even in a saved toolbar layout) | `src/projectscene/view/toolbars/audiodevicetoolbaritem.*`, `playbacktoolbarmodel.cpp`, `projectsceneuiactions.cpp` (default layout), `PlaybackToolBar.qml` |
+| `0009-…lined-track-area…` | The lined canvas behind the tracks ends at the last track | `TracksItemsView.qml` |
+| `0010-…File-menu…` | **Check for updates…** in the File menu instead of Help (muse `0003` renames it) | `appmenumodel.cpp` |
+| `0011-…continues-the-last-take` | After a take stops, the playhead is at its end; pressing Record without moving it continues on the same track(s) from there | `src/record/internal/recordcontroller.cpp` |
+| `0012-…format…WAV…` | When a Fractal FM3 (preferred) or Neural DSP Nano Cortex is connected, new projects default to its highest sample rate at 24-bit (both are fixed 48 kHz / 24-bit). Applied once per device, so a later choice in Preferences sticks. Exports default to WAV, 24-bit PCM (switched once on existing installs) | `src/au3audio/internal/au3audiodrivercontroller.cpp` (`applyPreferredDeviceDefaults`), `src/importexport/export/internal/exportconfiguration.cpp`, `au3/modules/import-export/mod-pcm/ExportPCM.cpp` |
+
+To prefer another interface, add its name (lower case) to `LT_PREFERRED_RECORDING_DEVICES`
+in `au3audiodrivercontroller.cpp`.
 
 ## The version number
 

@@ -10,6 +10,17 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-14
+
+**Toolbar, recording and format.**
+
+- **Input and Output dropdowns in the toolbar.** Pick the device you record from and the one you listen through, right next to the meters. The snap control is gone from the toolbar.
+- **Check for updates is in the File menu** (File › Check for updates…). The button at the top of the window is gone.
+- **Recording again picks up where you stopped.** After you stop, the playhead sits at the end of the take; press R and the next take continues from there on the same track. Click elsewhere first to record somewhere else.
+- **No empty lined area below your tracks.** The lined canvas ends at the last track.
+- **Recording format follows your interface.** With a Fractal FM3 connected (or else a Neural DSP Nano Cortex), new projects are 48 kHz, 24-bit, the best both record over USB. You can still change it in Preferences › Audio.
+- **Exports default to WAV, 24-bit**, at the project's sample rate.
+
 ## [0.4.0] - 2026-11-14
 
 **Listening Tree now opens ready to record.**

@@ -29,8 +29,8 @@ with the release notes.
    sets `VERSION`, commits and tags `v0.2.0`, pushes, and creates the GitHub
    release with the disk image and its checksum.
 
-4. **Check it:** open the release page it prints. In the installed app, click
-   **Check for updates** in the main window; it should offer the new version.
+4. **Check it:** open the release page it prints. In the installed app, choose
+   **File › Check for updates…**; it should offer the new version.
 
 ### Building on GitHub instead of your Mac
 

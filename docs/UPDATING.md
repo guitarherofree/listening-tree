@@ -3,15 +3,13 @@
 ## How the in-app updater works
 
 1. **Checking.** At most once a day (at startup, or later if the app stays
-   open; never during playback or recording), and whenever you click
-   **Check for updates** at the top of the window (or choose
-   **Help › Check for update**), the app asks GitHub for the newest release of
+   open; never during playback or recording), and whenever you choose
+   **File › Check for updates…**, the app asks GitHub for the newest release of
    `guitarherofree/listening-tree` and compares its version with its own.
    Turn the daily check off in **Preferences › General › Automatic update check**.
 2. **Choosing.** If there is a newer version, a window shows its release
-   notes, plus the notes of any versions in between that you skipped, and the
-   button in the main window changes to **Update available** (click it to see
-   the window again). You choose **Install update**, **Remind me later**, or **Skip this version**.
+   notes, plus the notes of any versions in between that you skipped. You choose
+   **Install update**, **Remind me later**, or **Skip this version**.
 3. **Downloading.** The disk image for your kind of Mac is downloaded with a
    progress bar and checked against the SHA-256 checksum GitHub recorded when
    it was uploaded. A damaged download is discarded.
@@ -46,7 +44,7 @@ build from `scripts/run.sh` never changes the installed app's settings either.
 
 GitHub only shows a private repository's releases to signed-in users, so the
 updater needs a read-only token. Without one, or with one that can't read the
-repository, **Check for updates** says so ("Couldn't check for updates … update token …").
+repository, **File › Check for updates…** says so ("Couldn't check for updates … update token …").
 
 1. Go to <https://github.com/settings/personal-access-tokens/new>
    (a "fine-grained" token).

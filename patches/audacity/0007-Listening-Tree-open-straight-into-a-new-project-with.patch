@@ -192,7 +192,7 @@ index 2fb88b0eb50dc128b1949a995c5091a300b9ca6b..6fc0cf59a00284d314df69f91737e517
      bool isAudioActive() const;
      void tryCheckForUpdate();
 diff --git a/src/appshell/qml/Audacity/AppShell/MainToolBar.qml b/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
-index c73b091383f903f9418ce950c0614398b99567d8..5d41772d9280c796ae8bda4bdd6033d69bd4f1cd 100644
+index f7e2b8d23b61faeb0a190f086f34ae7b942c1e51..c4e902044805dc692a73daea52b5ad7f4d2f155f 100644
 --- a/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
 +++ b/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
 @@ -43,7 +43,8 @@ Item {
@@ -205,18 +205,18 @@ index c73b091383f903f9418ce950c0614398b99567d8..5d41772d9280c796ae8bda4bdd6033d6
          if (btn) {
              btn.navigation.requestActive()
          }
-@@ -72,6 +73,9 @@ Item {
-             id: radioButtonList
-             spacing: 0
+@@ -68,6 +69,9 @@ Item {
+         id: radioButtonList
+         spacing: 0
  
-+            // Listening Tree: the Home/Project tabs only exist in developer mode
-+            visible: count > 0
++        // Listening Tree: the Home/Project tabs only exist in developer mode
++        visible: count > 0
 +
-             model: toolBarModel
+         model: toolBarModel
  
-             delegate: PageTabButton {
+         delegate: PageTabButton {
 diff --git a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
-index 36683d1f8d5dfa61bb60d3573769ec3247f35045..ee1e206c7c170f1e6aaf16dad6a9e7d67a1bdad6 100644
+index 1c3daca5a972c784dbd6ad7c56d138c6b308c9c8..0048cfc4ca957d599f6fbca60767e90f31f2e9fd 100644
 --- a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
 +++ b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
 @@ -91,11 +91,13 @@ void MainToolBarModel::load()

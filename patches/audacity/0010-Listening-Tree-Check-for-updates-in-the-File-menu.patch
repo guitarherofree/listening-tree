@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 20:56:31 -0500
+Subject: [PATCH] Listening Tree: Check for updates in the File menu
+
+
+diff --git a/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp b/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp
+index ff9c4f18ede017439ec02b15ca6b6231900955fa..5a0354eadc84337a93174f4954447593a3d6083f 100644
+--- a/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp
++++ b/src/appshell/qml/Audacity/AppShell/appmenumodel.cpp
+@@ -266,6 +266,13 @@ MenuItem* AppMenuModel::makeFileMenu()
+         makeMenuItem("quit", MenuItemRole::QuitRole)
+     };
+ 
++    // Listening Tree: "Check for updates" lives in the File menu (not in Help)
++    if (updateConfiguration()->isAppUpdatable()) {
++        const qsizetype beforeClose = fileItems.size() - 2; // ahead of "Close project" and "Quit"
++        fileItems.insert(beforeClose, makeMenuItem("check-update"));
++        fileItems.insert(beforeClose + 1, makeSeparator());
++    }
++
+     return makeMenu(TranslatableString("appshell-menu-file", "&File"), fileItems, "menu-file");
+ }
+ 
+@@ -507,11 +514,6 @@ MenuItem* AppMenuModel::makeHelpMenu()
+         makeMenuItem("revert-factory")
+     };
+ 
+-    if (updateConfiguration()->isAppUpdatable()) {
+-        helpItems.push_front(makeSeparator());
+-        helpItems.push_front(makeMenuItem("check-update"));
+-    }
+-
+     return makeMenu(TranslatableString("appshell-menu-help", "&Help"), helpItems, "menu-help");
+ }
+ 

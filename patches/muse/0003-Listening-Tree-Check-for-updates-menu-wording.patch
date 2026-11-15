@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 20:56:31 -0500
+Subject: [PATCH] =?UTF-8?q?Listening=20Tree:=20Check=20for=20updates?=
+ =?UTF-8?q?=E2=80=A6=20menu=20wording?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+
+diff --git a/framework/update/internal/updateuiactions.cpp b/framework/update/internal/updateuiactions.cpp
+index 31a55fe94877f7cc2b1077167571b5a057c1fc1f..3dbf2eb12e9004e4c3b3b86c25238e39ed141654 100644
+--- a/framework/update/internal/updateuiactions.cpp
++++ b/framework/update/internal/updateuiactions.cpp
+@@ -33,7 +33,8 @@ const UiActionList UpdateUiActions::m_actions = {
+     UiAction("check-update",
+              UiCtxAny,
+              muse::shortcuts::CTX_ANY,
+-             TranslatableString("action", "Check for &update")
++             // Listening Tree: shown in the File menu
++             TranslatableString("action", "Check for &updates…")
+              )
+ };
+ 

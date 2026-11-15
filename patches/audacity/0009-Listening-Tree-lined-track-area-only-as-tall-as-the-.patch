@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 20:56:41 -0500
+Subject: [PATCH] Listening Tree: lined track area only as tall as the tracks
+
+
+diff --git a/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml b/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
+index 382a3d3eaf9170f4ade17a41692e5cf621b5177a..237d1ed9e94bec928c4d2d0900ee2a1b312068d5 100644
+--- a/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
++++ b/src/projectscene/qml/Audacity/ProjectScene/tracksitemsview/TracksItemsView.qml
+@@ -550,9 +550,16 @@ Rectangle {
+         property bool leftTrimPressedButtons: false
+         property bool rightTrimPressedButtons: false
+ 
++        // Listening Tree: the lined canvas is only as tall as the tracks; below the last
++        // track there is plain background instead of empty grid
++        color: ui.theme.backgroundPrimaryColor
++
+         GridLines {
+             timelineRuler: timeline.ruler
+-            anchors.fill: parent
++            anchors.top: parent.top
++            anchors.left: parent.left
++            anchors.right: parent.right
++            height: Math.max(0, Math.min(parent.height, tracksModel.totalTracksHeight - tracksItemsView.contentY))
+         }
+ 
+         MouseArea {

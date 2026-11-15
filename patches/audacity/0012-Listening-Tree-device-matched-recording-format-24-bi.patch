@@ -1,0 +1,164 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 20:56:31 -0500
+Subject: [PATCH] Listening Tree: device-matched recording format, 24-bit WAV
+ export
+
+
+diff --git a/au3/modules/import-export/mod-pcm/ExportPCM.cpp b/au3/modules/import-export/mod-pcm/ExportPCM.cpp
+index cf4d6163819137c96097eba5aa881aa5f614a0ae..907d4e7425f1d1a599895ef1e90b4beb6aa145b0 100644
+--- a/au3/modules/import-export/mod-pcm/ExportPCM.cpp
++++ b/au3/modules/import-export/mod-pcm/ExportPCM.cpp
+@@ -129,6 +129,12 @@ ExportOptionsSFTypedEditor::ExportOptionsSFTypedEditor(int type)
+     mEncodingOption.title = TranslatableString("import-export", "Encoding");
+     mEncodingOption.flags = ExportOption::TypeEnum;
+     mEncodingOption.defaultValue = mEncodingOption.values[0];
++    // Listening Tree: 24-bit PCM by default, matching what is recorded
++    const auto pcm24 = std::find(mEncodingOption.values.begin(), mEncodingOption.values.end(),
++                                 ExportValue(SF_FORMAT_PCM_24));
++    if (pcm24 != mEncodingOption.values.end()) {
++        mEncodingOption.defaultValue = *pcm24;
++    }
+ 
+     mEncoding = *std::get_if<int>(&mEncodingOption.defaultValue);
+ }
+@@ -172,6 +178,16 @@ ExportOptionsSFTypedEditor::SampleRateList ExportOptionsSFTypedEditor::GetSample
+ 
+ void ExportOptionsSFTypedEditor::Load(const audacity::BasicSettings& config)
+ {
++    // Listening Tree: switch WAV exports to the 24-bit default once, even if an earlier
++    // encoding was saved; an encoding chosen after that is kept
++    static const wxString kApplied = wxT("/ListeningTree/Export24BitWavApplied");
++    if (mType == SF_FORMAT_WAV && !config.Read(kApplied, false)) {
++        gPrefs->Write(kApplied, true);
++        SaveEncoding(*gPrefs, mType, mEncoding);
++        gPrefs->Flush();
++        return;
++    }
++
+     mEncoding = LoadEncoding(config, mType, mEncoding);
+ }
+ 
+diff --git a/src/au3audio/internal/au3audiodrivercontroller.cpp b/src/au3audio/internal/au3audiodrivercontroller.cpp
+index 7a3ff1596c5719ee23d69abd8a1bd74a60309976..66f05ab7c15ef5b1bc57d68be0533e55019c78ce 100644
+--- a/src/au3audio/internal/au3audiodrivercontroller.cpp
++++ b/src/au3audio/internal/au3audiodrivercontroller.cpp
+@@ -44,6 +44,13 @@ const muse::Settings::Key DEFAULT_PROJECT_SAMPLE_FORMAT("au3audio", "SamplingRat
+ const muse::Settings::Key RECORDING_SOURCE("au3audio", "AudioIO/RecordingSource");
+ const muse::Settings::Key RECORDING_SOURCE_INDEX("au3audio", "AudioIO/RecordingSourceIndex");
+ const muse::Settings::Key ASIO_USE_DEVICE_SAMPLE_RATE("au3audio", "AudioIO/ASIO/UseDeviceSampleRate");
++// Listening Tree: the device (and rate) whose format was last made the default for new projects
++const muse::Settings::Key LT_DEVICE_FORMAT_APPLIED("au3audio", "ListeningTree/DeviceFormatAppliedFor");
++
++// Listening Tree: devices whose format becomes the default for new projects when connected,
++// most preferred first (matched case-insensitively against the device name)
++constexpr const char* LT_PREFERRED_RECORDING_DEVICES[] = { "fm3", "nano cortex" };
++constexpr long LT_FALLBACK_SAMPLE_RATE = 48000; // both devices are fixed at 48 kHz / 24-bit
+ 
+ std::string preferredAudioHost(const std::vector<std::string>& hosts)
+ {
+@@ -184,6 +191,8 @@ void Au3AudioDriverController::init()
+     settings()->setLocalValue(INPUT_CHANNELS, muse::Val(inputChannels));
+     m_configuration = configurationFromSettings();
+ 
++    applyPreferredDeviceDefaults();
++
+     systemAudioDevicesListener()->systemDevicesChanged().onNotify(this, [this]() {
+         onSystemDevicesChanged();
+     });
+@@ -216,6 +225,8 @@ void Au3AudioDriverController::onSystemDevicesChanged()
+         return;
+     }
+ 
++    applyPreferredDeviceDefaults(); // Listening Tree: e.g. an FM3 was just plugged in
++
+     const auto after = m_configuration;
+     const std::string outputDevice = effectiveOutputDevice(after.api, after.outputDevice);
+     const std::string inputDevice = effectiveInputDevice(after.api, after.inputDevice);
+@@ -228,6 +239,45 @@ void Au3AudioDriverController::onSystemDevicesChanged()
+     }
+ }
+ 
++void Au3AudioDriverController::applyPreferredDeviceDefaults()
++{
++    //! Listening Tree: when a Fractal Audio FM3 is connected (or else a Neural DSP Nano Cortex),
++    //! new projects default to the best format that device records: its highest sample rate,
++    //! 24-bit. This is done once per device and rate, so a format chosen afterwards in
++    //! Preferences sticks until a different preferred device turns up.
++    const auto& maps = DeviceManager::Instance()->GetInputDeviceMaps();
++
++    for (const char* wanted : LT_PREFERRED_RECORDING_DEVICES) {
++        const auto it = std::find_if(maps.begin(), maps.end(), [&](const DeviceSourceMap& map) {
++            return map.hostString == m_configuration.api
++                   && map.deviceString.Lower().Contains(wxString::FromUTF8(wanted));
++        });
++        if (it == maps.end()) {
++            continue;
++        }
++
++        const std::vector<long> rates = AudioIOBase::GetSupportedCaptureRates(it->deviceIndex);
++        const long bestRate = rates.empty() ? LT_FALLBACK_SAMPLE_RATE : *std::max_element(rates.begin(), rates.end());
++        const std::string marker = wxToStdString(it->deviceString) + " @ " + std::to_string(bestRate);
++        if (settings()->value(LT_DEVICE_FORMAT_APPLIED).toString() == marker) {
++            return;
++        }
++
++        AudioConfigurationChange change;
++        change.defaultSampleRate = static_cast<uint64_t>(bestRate);
++        change.defaultSampleFormat = displaySampleFormat("Format24Bit");
++
++        const ApplyResult result = apply({}, change);
++        if (result.succeeded()) {
++            settings()->setLocalValue(LT_DEVICE_FORMAT_APPLIED, muse::Val(marker));
++            LOGI() << "New projects now default to " << bestRate << " Hz, 24-bit (" << marker << ")";
++        } else {
++            LOGW() << "Could not make " << marker << " the default format, status: " << static_cast<int>(result.status);
++        }
++        return;
++    }
++}
++
+ void Au3AudioDriverController::initDefaults()
+ {
+     const auto availableApis = apis();
+diff --git a/src/au3audio/internal/au3audiodrivercontroller.h b/src/au3audio/internal/au3audiodrivercontroller.h
+index ace596144fa24f57ea57ecf8d6ad8f436d0bacfa..a79528f7e0a2ad1a7997a999017578fee69c8500 100644
+--- a/src/au3audio/internal/au3audiodrivercontroller.h
++++ b/src/au3audio/internal/au3audiodrivercontroller.h
+@@ -53,6 +53,7 @@ private:
+ 
+     void initDefaults();
+     void onSystemDevicesChanged();
++    void applyPreferredDeviceDefaults(); // Listening Tree
+     audio::AudioConfiguration configurationFromSettings() const;
+     void refreshInputDeviceSettings(const std::string& api, const audio::AudioDeviceSelection& inputDevice);
+ 
+diff --git a/src/importexport/export/internal/exportconfiguration.cpp b/src/importexport/export/internal/exportconfiguration.cpp
+index 4f7eb2af556a0fbaf7d4ca26ecb5bd2989dba5f2..d71a17d1257a2db91d05ce4f3e0b5de519ff2fe4 100644
+--- a/src/importexport/export/internal/exportconfiguration.cpp
++++ b/src/importexport/export/internal/exportconfiguration.cpp
+@@ -51,6 +51,11 @@ static const muse::Settings::Key FFMPEG_FORMAT("au3wrap", "FileFormats/FFmpegFor
+ 
+ static const muse::Settings::Key DEFAULT_METADATA(module_name, "importexport/defaultMetadata");
+ 
++// Listening Tree: export WAV by default. (On a Mac the first format in the list, which
++// upstream falls back to, is AIFF.) Existing installs are switched to WAV once.
++static const std::string LT_DEFAULT_EXPORT_FORMAT("WAV (Microsoft)");
++static const muse::Settings::Key LT_EXPORT_DEFAULTS_APPLIED(module_name, "importexport/listeningTreeDefaultsApplied");
++
+ void ExportConfiguration::init()
+ {
+     muse::settings()->setDefaultValue(EXPORT_PROCESS, muse::Val(ExportProcessType::FULL_PROJECT_AUDIO));
+@@ -83,6 +88,12 @@ void ExportConfiguration::init()
+         m_directoryPathChanged.notify();
+     });
+ 
++    muse::settings()->setDefaultValue(EXPORT_FORMAT, muse::Val(LT_DEFAULT_EXPORT_FORMAT));
++    muse::settings()->setDefaultValue(LT_EXPORT_DEFAULTS_APPLIED, muse::Val(false));
++    if (!muse::settings()->value(LT_EXPORT_DEFAULTS_APPLIED).toBool()) {
++        muse::settings()->setSharedValue(EXPORT_FORMAT, muse::Val(LT_DEFAULT_EXPORT_FORMAT));
++        muse::settings()->setSharedValue(LT_EXPORT_DEFAULTS_APPLIED, muse::Val(true));
++    }
+     muse::settings()->valueChanged(EXPORT_FORMAT).onReceive(nullptr, [this] (const muse::Val&) {
+         m_currentFormatChanged.notify();
+     });

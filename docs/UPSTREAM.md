@@ -46,7 +46,8 @@ upstream's list changed) in `config/upstream.env` to match
   They work with the script, but stay on final releases for everyday use.
 - **What Listening Tree changes in Audacity**, for reviewing upstream changes:
   `patches/audacity/` (name and version, About and splash, feature hook,
-  installing updates, update preferences, the update button in the main toolbar), `patches/muse/` (updater wiring),
+  installing updates, update preferences, shortcuts, startup, toolbar, recording and
+  format defaults; see the list in DEVELOPING.md), `patches/muse/` (updater wiring),
   `branding/overlay/` (replaced images), and `core/updater/appupdateservice.cpp`
   (replaces `muse/framework/update/internal/appupdateservice.cpp`).
 
