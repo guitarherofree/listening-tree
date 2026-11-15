@@ -1,0 +1,1245 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sun, 15 Nov 2026 14:01:57 -0500
+Subject: [PATCH] Listening Tree: classic toolbar, like Audacity 3
+
+
+diff --git a/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml b/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
+index 642070922485924e410f0bc921278c912c6613cc..db502d103f75b825cb4fb0c4ba5b13dc785e6854 100644
+--- a/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
++++ b/src/appshell/qml/Audacity/AppShell/ProjectPage/ProjectPage.qml
+@@ -176,10 +176,13 @@ DockPage {
+             dropDestinations: [root.toolBarTopDropDestination, root.toolBarBottomDropDestination]
+ 
+             minimumWidth: 300
+-            thickness: 48 /* see PlaybackToolBar rowHeight */
++            // Listening Tree: the classic toolbar has four rows: two meters, transport, devices
++            thickness: 152 /* ClassicToolBar: 28 + 28 + 48 + 28 px rows, 4 px gaps and margins */
+             resizable: true
+ 
+-            PlaybackToolBar {
++            // Listening Tree: Audacity 3 style toolbar (meters, large transport buttons,
++            // selection, large time, devices) in place of PlaybackToolBar
++            ClassicToolBar {
+                 id: playbackToolBarContent
+ 
+                 floating: playbackToolBar.floating
+@@ -310,19 +313,5 @@ DockPage {
+         }
+     }
+ 
+-    statusBar: DockStatusBar {
+-        objectName: pageModel.statusBarName()
+-
+-        property int thickness: 40
+-
+-        height: thickness
+-        minimumHeight: thickness
+-        maximumHeight: thickness
+-
+-        navigationSection: content.navigationSection
+-
+-        ProjectStatusBar {
+-            id: content
+-        }
+-    }
++    // Listening Tree: no status bar; the selection (start, end or length) is in the toolbar
+ }
+diff --git a/src/projectscene/internal/projectsceneuiactions.cpp b/src/projectscene/internal/projectsceneuiactions.cpp
+index f3058b0f823b2ea878b27915c667d7027dc55929..fc3291f43e8a51aae7dc483af7f0e1d17f4c63bb 100644
+--- a/src/projectscene/internal/projectsceneuiactions.cpp
++++ b/src/projectscene/internal/projectsceneuiactions.cpp
+@@ -160,6 +160,22 @@ static UiActionList STATIC_ACTIONS = {
+              //: Action description: shown as a tooltip; can be a full sentence
+              TranslatableString("action_description", "Choose the device to play through")
+              ),
++    UiAction("lt-audio-host",
++             au::context::UiCtxAny,
++             au::context::CTX_ANY,
++             //: Action title: shown as a menu item or a button label; keep it short
++             TranslatableString("action", "Audio host"),
++             //: Action description: shown as a tooltip; can be a full sentence
++             TranslatableString("action_description", "Choose the audio system to use")
++             ),
++    UiAction("lt-recording-channels",
++             au::context::UiCtxAny,
++             au::context::CTX_ANY,
++             //: Action title: shown as a menu item or a button label; keep it short
++             TranslatableString("action", "Recording channels"),
++             //: Action description: shown as a tooltip; can be a full sentence
++             TranslatableString("action_description", "Choose how many channels to record")
++             ),
+     UiAction("minutes-seconds-ruler",
+              au::context::UiCtxAny,
+              au::context::CTX_ANY,
+diff --git a/src/projectscene/projectscene.qrc b/src/projectscene/projectscene.qrc
+index f53c9f56bd88385314df53e8a7da1d9c3a213b98..693a31720f5950027f5b6554483924b4086ddd3f 100644
+--- a/src/projectscene/projectscene.qrc
++++ b/src/projectscene/projectscene.qrc
+@@ -44,6 +44,8 @@
+         <file>qml/Audacity/ProjectScene/common/TracksListView.qml</file>
+         <file>qml/Audacity/ProjectScene/statusbar/SelectionStatus.qml</file>
+         <file>qml/Audacity/ProjectScene/toolbars/PlaybackToolBar.qml</file>
++        <file>qml/Audacity/ProjectScene/toolbars/ClassicToolBar.qml</file>
++        <file>qml/Audacity/ProjectScene/toolbars/internal/ClassicMeter.qml</file>
+         <file>qml/Audacity/ProjectScene/toolbars/internal/CustomiseView.qml</file>
+         <file>qml/Audacity/ProjectScene/toolbars/internal/PlaybackToolBarActionDelegate.qml</file>
+         <file>qml/Audacity/ProjectScene/toolbars/internal/PlaybackToolBarCustomisePopup.qml</file>
+diff --git a/src/projectscene/qml/Audacity/ProjectScene/qmldir b/src/projectscene/qml/Audacity/ProjectScene/qmldir
+index 505595b4d10f9cd052a989d288b5d9730d3307ab..e2a2d5e4919370f7f1269e34a4d16399c389bee8 100644
+--- a/src/projectscene/qml/Audacity/ProjectScene/qmldir
++++ b/src/projectscene/qml/Audacity/ProjectScene/qmldir
+@@ -2,6 +2,7 @@ module Audacity.ProjectScene
+ ProjectToolBar 1.0 toolbars/ProjectToolBar.qml
+ UndoRedoToolBar 1.0 toolbars/UndoRedoToolBar.qml
+ PlaybackToolBar 1.0 toolbars/PlaybackToolBar.qml
++ClassicToolBar 1.0 toolbars/ClassicToolBar.qml
+ WorkspacesToolBar 1.0 toolbars/WorkspacesToolBar.qml
+ RealtimeEffectListItem 1.0 trackspanel/RealtimeEffectListItem.qml
+ RealtimeEffectListItemButtonBackground 1.0 trackspanel/RealtimeEffectListItemButtonBackground.qml
+diff --git a/src/projectscene/qml/Audacity/ProjectScene/toolbars/ClassicToolBar.qml b/src/projectscene/qml/Audacity/ProjectScene/toolbars/ClassicToolBar.qml
+new file mode 100644
+index 0000000000000000000000000000000000000000..d425e28f9a5dcadde4511d7474575a13c5a6e34e
+--- /dev/null
++++ b/src/projectscene/qml/Audacity/ProjectScene/toolbars/ClassicToolBar.qml
+@@ -0,0 +1,662 @@
++/*
++* Audacity: A Digital Audio Editor
++*
++* Listening Tree: the toolbar in the style of Audacity 3's classic layout:
++*   - a recording meter row and a playback meter row, each with its level slider
++*   - large transport buttons (Pause, Play, Stop, Skip to start/end, Record, Loop),
++*     the selection's start and end, and a large playback time
++*   - the audio host, recording device, recording channels and playback device
++* The items come from PlaybackToolBarModel in its fixed "classic" layout.
++*/
++import QtQuick
++import QtQuick.Layouts
++
++import Muse.Ui
++import Muse.UiComponents
++
++import Audacity.Playback
++import Audacity.Record
++import Audacity.ProjectScene
++import Audacity.UiComponents
++
++import "internal"
++
++Item {
++    id: root
++
++    property bool floating: false
++
++    property int maximumWidth: 0
++    property int maximumHeight: 0
++
++    property NavigationPanel navigationPanel: NavigationPanel {
++        name: "ClassicToolBar"
++        enabled: root.enabled && root.visible
++        direction: NavigationPanel.Horizontal
++        accessible.name: qsTrc("projectscene", "Playback toolbar")
++    }
++
++    signal relayoutRequested
++
++    width: root.maximumWidth > 0 ? Math.max(prv.minimumContentWidth, root.maximumWidth) : prv.minimumContentWidth
++    height: content.implicitHeight + 2 * prv.margin
++
++    PlaybackToolBarModel {
++        id: toolbarModel
++
++        classicLayout: true
++
++        onItemsChanged: {
++            root.relayoutRequested()
++        }
++    }
++
++    PlaybackStateModel {
++        id: playbackState
++    }
++
++    SelectionStatusModel {
++        id: selectionModel
++    }
++
++    PlaybackMeterModel {
++        id: playbackMeterModel
++    }
++
++    RecordMeterModel {
++        id: recordMeterModel
++    }
++
++    Component.onCompleted: {
++        toolbarModel.load()
++        playbackState.init()
++        selectionModel.init()
++        playbackMeterModel.init()
++        recordMeterModel.init()
++    }
++
++    QtObject {
++        id: prv
++
++        readonly property int margin: 4
++        readonly property int spacing: 6
++        readonly property int meterRowHeight: 28
++        readonly property int transportButtonSize: 44
++        readonly property int smallButtonSize: 28
++
++        readonly property real selectionZoom: 0.82
++        readonly property real timeZoom: 1.5
++
++        readonly property int minimumContentWidth: Math.max(transportRow.implicitWidth, deviceRow.implicitWidth) + 2 * margin
++
++        property bool selectionShowsLength: false
++
++        function findItem(items, code) {
++            if (!items) {
++                return null
++            }
++            for (let i = 0; i < items.length; ++i) {
++                let item = items[i]
++                if (item && item.code === code) {
++                    return item
++                }
++            }
++            return null
++        }
++
++        readonly property var playPauseItem: findItem(toolbarModel.items, "action://playback/toggle-play-pause")
++        readonly property var stopItem: findItem(toolbarModel.items, "action://playback/stop")
++        readonly property var rewindStartItem: findItem(toolbarModel.items, "action://playback/rewind-start")
++        readonly property var rewindEndItem: findItem(toolbarModel.items, "action://playback/rewind-end")
++        readonly property var recordItem: findItem(toolbarModel.items, "action://record/start")
++        readonly property var loopItem: findItem(toolbarModel.items, "toggle-loop-region")
++        readonly property var timeItem: findItem(toolbarModel.items, "playback-time")
++        readonly property var recordLevelItem: findItem(toolbarModel.items, "action://record/level")
++        readonly property var playbackLevelItem: findItem(toolbarModel.items, "action://playback/level")
++        readonly property var hostItem: findItem(toolbarModel.items, "lt-audio-host")
++        readonly property var inputItem: findItem(toolbarModel.items, "lt-recording-device")
++        readonly property var channelsItem: findItem(toolbarModel.items, "lt-recording-channels")
++        readonly property var outputItem: findItem(toolbarModel.items, "lt-playback-device")
++
++        // The recording meter shows the input all the time, not just while recording
++        // (unless "Show mic metering when not recording" is turned off in the mic button's popup)
++        onRecordLevelItemChanged: {
++            if (recordLevelItem) {
++                recordLevelItem.listenMainAudioInput(true)
++            }
++        }
++
++        function activate(item) {
++            if (item && item.enabled) {
++                Qt.callLater(item.activate)
++            }
++        }
++    }
++
++    //! NOTE inline components can't see this file's ids, so they only use ui and their own properties
++    component TransportButton: FlatButton {
++        width: 44
++        height: 44
++        Layout.preferredWidth: 44
++        Layout.preferredHeight: 44
++
++        backgroundRadius: 4
++        iconFont: Qt.font({ family: ui.theme.iconsFont.family, pixelSize: 22 })
++    }
++
++    component VerticalSeparator: Rectangle {
++        Layout.fillHeight: true
++        Layout.topMargin: 4
++        Layout.bottomMargin: 4
++        Layout.leftMargin: 4
++        Layout.rightMargin: 4
++
++        implicitWidth: 1
++        color: ui.theme.strokeColor
++    }
++
++    component DeviceDropdown: DropdownWithTitle {
++        property var itemData: null
++
++        Layout.preferredHeight: 28
++
++        allowOptionToggle: false
++        current: Boolean(itemData) ? itemData.currentValue : ""
++        dropdownAccessibleName: Boolean(itemData) ? itemData.title : ""
++        model: Boolean(itemData) ? itemData.availableDevices : null
++
++        onHandleMenuItem: function (itemId) {
++            if (itemData) {
++                itemData.handleMenuItem(itemId)
++            }
++        }
++    }
++
++    Column {
++        id: content
++
++        anchors.fill: parent
++        anchors.margins: prv.margin
++
++        spacing: 4
++
++        // ---- Recording meter ----
++        RowLayout {
++            id: recordMeterRow
++
++            width: parent.width
++            height: prv.meterRowHeight
++
++            spacing: 4
++
++            RecordLevel {
++                id: recordMeterButton
++
++                Layout.preferredWidth: prv.smallButtonSize
++                Layout.preferredHeight: prv.smallButtonSize
++
++                backgroundRadius: 3
++                icon: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.icon : IconCode.MICROPHONE
++                toolTipTitle: qsTrc("projectscene", "Recording meter")
++                toolTipDescription: qsTrc("projectscene", "Recording level and input monitoring")
++
++                volumeLevel: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.level : 0
++                leftCurrentVolumePressure: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.leftChannelPressure : -145
++                rightCurrentVolumePressure: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.rightChannelPressure : -145
++                recordingChannelsCount: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.recordingChannelsCount : 0
++                isInputMonitoringOn: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.isInputMonitoringOn : false
++                isMicMeteringOn: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.isMicMeteringOn : false
++
++                enabled: Boolean(prv.recordLevelItem) && prv.recordLevelItem.enabled
++
++                navigationPanel: root.navigationPanel
++                navigationOrder: 1
++
++                onVolumeLevelChangeRequested: function (level) {
++                    if (prv.recordLevelItem) {
++                        prv.recordLevelItem.level = level
++                    }
++                }
++
++                onIsInputMonitoringOnChangeRequested: function (enable) {
++                    if (prv.recordLevelItem) {
++                        prv.recordLevelItem.isInputMonitoringOn = enable
++                    }
++                }
++
++                onIsMicMeteringOnChangeRequested: function (enable) {
++                    if (prv.recordLevelItem) {
++                        prv.recordLevelItem.isMicMeteringOn = enable
++                    }
++                }
++            }
++
++            ClassicMeter {
++                id: recordMeter
++
++                Layout.fillWidth: true
++                Layout.preferredHeight: prv.meterRowHeight
++
++                meterModel: recordMeterModel
++                stereo: !Boolean(prv.recordLevelItem) || prv.recordLevelItem.recordingChannelsCount !== 1
++
++                volumeLevel: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.level : 0
++                leftPressure: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.leftChannelPressure : -145
++                rightPressure: Boolean(prv.recordLevelItem) ? prv.recordLevelItem.rightChannelPressure : -145
++
++                enabled: Boolean(prv.recordLevelItem) && prv.recordLevelItem.enabled
++
++                navigationPanel: root.navigationPanel
++                navigationOrder: 2
++                volumeAccessibleName: qsTrc("projectscene", "Recording level")
++
++                onVolumeLevelChangeRequested: function (level) {
++                    if (prv.recordLevelItem) {
++                        prv.recordLevelItem.level = level
++                    }
++                }
++            }
++        }
++
++        // ---- Playback meter ----
++        RowLayout {
++            id: playbackMeterRow
++
++            width: parent.width
++            height: prv.meterRowHeight
++
++            spacing: 4
++
++            FlatButton {
++                id: playbackMeterButton
++
++                Layout.preferredWidth: prv.smallButtonSize
++                Layout.preferredHeight: prv.smallButtonSize
++
++                backgroundRadius: 3
++                icon: IconCode.AUDIO
++                toolTipTitle: qsTrc("playback", "Playback meter settings")
++                accentButton: playbackMeterPopup.isOpened
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 3
++
++                onClicked: {
++                    playbackMeterPopup.toggleOpened()
++                }
++
++                PlaybackMeterCustomisePopup {
++                    id: playbackMeterPopup
++                    model: playbackMeterModel
++                }
++            }
++
++            ClassicMeter {
++                id: playbackMeter
++
++                Layout.fillWidth: true
++                Layout.preferredHeight: prv.meterRowHeight
++
++                meterModel: playbackMeterModel
++
++                volumeLevel: Boolean(prv.playbackLevelItem) ? prv.playbackLevelItem.level : 0
++                leftPressure: Boolean(prv.playbackLevelItem) ? prv.playbackLevelItem.leftChannelPressure : -145
++                leftRMS: Boolean(prv.playbackLevelItem) ? prv.playbackLevelItem.leftChannelRMS : -145
++                rightPressure: Boolean(prv.playbackLevelItem) ? prv.playbackLevelItem.rightChannelPressure : -145
++                rightRMS: Boolean(prv.playbackLevelItem) ? prv.playbackLevelItem.rightChannelRMS : -145
++
++                enabled: Boolean(prv.playbackLevelItem) && prv.playbackLevelItem.enabled
++
++                navigationPanel: root.navigationPanel
++                navigationOrder: 4
++                volumeAccessibleName: qsTrc("playback", "Playback volume")
++
++                onVolumeLevelChangeRequested: function (level) {
++                    if (prv.playbackLevelItem) {
++                        prv.playbackLevelItem.level = level
++                    }
++                }
++            }
++
++            Connections {
++                target: playbackState
++
++                function onIsPlayingChanged() {
++                    if (playbackState.isPlaying) {
++                        playbackMeter.resetMeters()
++                    }
++                }
++            }
++        }
++
++        // ---- Transport, selection and time ----
++        RowLayout {
++            id: transportRow
++
++            height: prv.transportButtonSize + 4
++
++            spacing: prv.spacing
++
++            TransportButton {
++                id: pauseButton
++
++                icon: IconCode.PAUSE_FILL
++                toolTipTitle: qsTrc("projectscene", "Pause")
++                toolTipShortcut: Boolean(prv.playPauseItem) ? prv.playPauseItem.shortcuts : ""
++
++                enabled: Boolean(prv.playPauseItem) && prv.playPauseItem.enabled
++                         && (playbackState.isPlaying || playbackState.isPaused || playbackState.isRecording)
++                accentButton: playbackState.isPaused
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 10
++
++                onClicked: {
++                    prv.activate(prv.playPauseItem)
++                }
++            }
++
++            TransportButton {
++                id: playButton
++
++                icon: IconCode.PLAY_FILL
++                iconColor: playbackState.isPlaying ? ui.theme.fontPrimaryColor : ui.theme.extra["play_color"]
++                accentColor: ui.theme.extra["play_color"]
++                accentButton: playbackState.isPlaying
++                toolTipTitle: qsTrc("projectscene", "Play")
++                toolTipShortcut: Boolean(prv.playPauseItem) ? prv.playPauseItem.shortcuts : ""
++
++                enabled: Boolean(prv.playPauseItem) && prv.playPauseItem.enabled && !playbackState.isRecording
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 11
++
++                onClicked: {
++                    if (!playbackState.isPlaying) {
++                        prv.activate(prv.playPauseItem)
++                    }
++                }
++            }
++
++            TransportButton {
++                id: stopButton
++
++                icon: IconCode.STOP_FILL
++                toolTipTitle: Boolean(prv.stopItem) ? prv.stopItem.title : ""
++                toolTipShortcut: Boolean(prv.stopItem) ? prv.stopItem.shortcuts : ""
++
++                enabled: Boolean(prv.stopItem) && prv.stopItem.enabled
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 12
++
++                onClicked: {
++                    prv.activate(prv.stopItem)
++                }
++            }
++
++            TransportButton {
++                id: rewindStartButton
++
++                icon: IconCode.REWIND_START_FILL
++                toolTipTitle: qsTrc("projectscene", "Skip to start")
++                toolTipShortcut: Boolean(prv.rewindStartItem) ? prv.rewindStartItem.shortcuts : ""
++
++                enabled: Boolean(prv.rewindStartItem) && prv.rewindStartItem.enabled
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 13
++
++                onClicked: {
++                    prv.activate(prv.rewindStartItem)
++                }
++            }
++
++            TransportButton {
++                id: rewindEndButton
++
++                icon: IconCode.REWIND_END_FILL
++                toolTipTitle: qsTrc("projectscene", "Skip to end")
++                toolTipShortcut: Boolean(prv.rewindEndItem) ? prv.rewindEndItem.shortcuts : ""
++
++                enabled: Boolean(prv.rewindEndItem) && prv.rewindEndItem.enabled
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 14
++
++                onClicked: {
++                    prv.activate(prv.rewindEndItem)
++                }
++            }
++
++            TransportButton {
++                id: recordButton
++
++                readonly property bool isRecording: Boolean(prv.recordItem) && prv.recordItem.selected
++
++                icon: IconCode.RECORD_FILL
++                iconColor: isRecording ? ui.theme.backgroundPrimaryColor : ui.theme.extra["record_color"]
++                accentColor: ui.theme.extra["record_color"]
++                accentButton: isRecording
++                toolTipTitle: Boolean(prv.recordItem) ? prv.recordItem.title : ""
++                toolTipShortcut: Boolean(prv.recordItem) ? prv.recordItem.shortcuts : ""
++
++                enabled: Boolean(prv.recordItem) && prv.recordItem.enabled
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 15
++
++                onClicked: {
++                    prv.activate(prv.recordItem)
++                }
++            }
++
++            TransportButton {
++                id: loopButton
++
++                icon: IconCode.LOOP
++                accentButton: Boolean(prv.loopItem) && prv.loopItem.selected
++                toolTipTitle: Boolean(prv.loopItem) ? prv.loopItem.title : ""
++                toolTipShortcut: Boolean(prv.loopItem) ? prv.loopItem.shortcuts : ""
++
++                enabled: Boolean(prv.loopItem) && prv.loopItem.enabled
++
++                navigation.panel: root.navigationPanel
++                navigation.order: 16
++
++                onClicked: {
++                    prv.activate(prv.loopItem)
++                }
++            }
++
++            VerticalSeparator {}
++
++            // Selection: start, and end (or length)
++            ColumnLayout {
++                Layout.alignment: Qt.AlignVCenter
++
++                spacing: 2
++
++                StyledTextLabel {
++                    text: qsTrc("projectscene", "Selection")
++                    enabled: selectionModel.isEnabled
++                }
++
++                FlatButton {
++                    Layout.preferredWidth: prv.smallButtonSize - 4
++                    Layout.preferredHeight: prv.smallButtonSize - 4
++
++                    icon: IconCode.SETTINGS_COG
++                    transparent: true
++                    toolTipTitle: prv.selectionShowsLength ? qsTrc("projectscene", "Show selection start and end")
++                                                           : qsTrc("projectscene", "Show selection start and length")
++
++                    navigation.panel: root.navigationPanel
++                    navigation.order: 20
++
++                    onClicked: {
++                        prv.selectionShowsLength = !prv.selectionShowsLength
++                    }
++                }
++            }
++
++            Item {
++                id: selectionTimes
++
++                Layout.alignment: Qt.AlignVCenter
++                Layout.preferredWidth: Math.max(selectionStart.width, selectionEnd.width) * prv.selectionZoom
++                Layout.preferredHeight: (selectionStart.height + selectionEnd.height + 2) * prv.selectionZoom
++
++                Column {
++                    scale: prv.selectionZoom
++                    transformOrigin: Item.TopLeft
++
++                    spacing: 2
++
++                    Timecode {
++                        id: selectionStart
++
++                        accessibleName: qsTrc("projectscene", "Selection start")
++
++                        value: selectionModel.startTime
++                        mode: TimecodeModeSelector.TimePoint
++                        sampleRate: selectionModel.sampleRate
++                        tempo: selectionModel.tempo
++                        upperTimeSignature: selectionModel.upperTimeSignature
++                        lowerTimeSignature: selectionModel.lowerTimeSignature
++                        currentFormat: selectionModel.currentFormat
++
++                        enabled: selectionModel.isEnabled
++
++                        onValueChangeRequested: function (newValue) {
++                            selectionModel.startTime = newValue
++                        }
++
++                        onCurrentFormatChanged: {
++                            selectionModel.currentFormat = currentFormat
++                        }
++                    }
++
++                    Timecode {
++                        id: selectionEnd
++
++                        accessibleName: prv.selectionShowsLength ? qsTrc("projectscene", "Selection length")
++                                                                 : qsTrc("projectscene", "Selection end")
++
++                        value: prv.selectionShowsLength ? selectionModel.endTime - selectionModel.startTime : selectionModel.endTime
++                        mode: prv.selectionShowsLength ? TimecodeModeSelector.Duration : TimecodeModeSelector.TimePoint
++                        sampleRate: selectionModel.sampleRate
++                        tempo: selectionModel.tempo
++                        upperTimeSignature: selectionModel.upperTimeSignature
++                        lowerTimeSignature: selectionModel.lowerTimeSignature
++                        currentFormat: prv.selectionShowsLength ? selectionModel.durationFormat : selectionModel.currentFormat
++
++                        enabled: selectionModel.isEnabled
++
++                        onValueChangeRequested: function (newValue) {
++                            if (prv.selectionShowsLength) {
++                                selectionModel.endTime = selectionModel.startTime + newValue
++                            } else {
++                                selectionModel.endTime = newValue
++                            }
++                        }
++
++                        onCurrentFormatChanged: {
++                            if (prv.selectionShowsLength) {
++                                selectionModel.durationFormat = currentFormat
++                            } else {
++                                selectionModel.currentFormat = currentFormat
++                            }
++                        }
++                    }
++                }
++            }
++
++            VerticalSeparator {}
++
++            // Playback position, large
++            Item {
++                id: timeDisplay
++
++                Layout.alignment: Qt.AlignVCenter
++                Layout.preferredWidth: timecode.width * prv.timeZoom
++                Layout.preferredHeight: timecode.height * prv.timeZoom
++
++                Timecode {
++                    id: timecode
++
++                    scale: prv.timeZoom
++                    transformOrigin: Item.TopLeft
++
++                    accessibleName: qsTrc("projectscene", "Playback position:")
++                    appearance: Timecode.Appearance.Clock
++
++                    value: Boolean(prv.timeItem) ? prv.timeItem.currentValue : 0
++                    mode: TimecodeModeSelector.TimePoint
++                    sampleRate: Boolean(prv.timeItem) ? prv.timeItem.sampleRate : 0
++                    tempo: Boolean(prv.timeItem) ? prv.timeItem.tempo : 0
++                    upperTimeSignature: Boolean(prv.timeItem) ? prv.timeItem.upperTimeSignature : -1
++                    lowerTimeSignature: Boolean(prv.timeItem) ? prv.timeItem.lowerTimeSignature : -1
++                    currentFormat: Boolean(prv.timeItem) ? prv.timeItem.currentFormat : -1
++
++                    enabled: Boolean(prv.timeItem) && prv.timeItem.enabled
++
++                    onValueChangeRequested: function (newValue) {
++                        if (prv.timeItem) {
++                            prv.timeItem.currentValue = newValue
++                        }
++                    }
++
++                    onCurrentFormatChanged: {
++                        if (prv.timeItem) {
++                            prv.timeItem.currentFormat = currentFormat
++                        }
++                    }
++                }
++            }
++        }
++
++        // ---- Devices ----
++        RowLayout {
++            id: deviceRow
++
++            height: prv.smallButtonSize
++
++            spacing: prv.spacing
++
++            DeviceDropdown {
++                Layout.preferredWidth: 130
++                itemData: prv.hostItem
++                enabled: toolbarModel.isEnabled && Boolean(prv.hostItem)
++            }
++
++            StyledIconLabel {
++                Layout.leftMargin: 6
++                iconCode: IconCode.MICROPHONE
++            }
++
++            DeviceDropdown {
++                Layout.preferredWidth: 230
++                itemData: prv.inputItem
++                enabled: toolbarModel.isEnabled && Boolean(prv.inputItem)
++            }
++
++            DeviceDropdown {
++                Layout.preferredWidth: 220
++                itemData: prv.channelsItem
++                enabled: toolbarModel.isEnabled && Boolean(prv.channelsItem)
++            }
++
++            StyledIconLabel {
++                Layout.leftMargin: 6
++                iconCode: IconCode.AUDIO
++            }
++
++            DeviceDropdown {
++                Layout.preferredWidth: 230
++                itemData: prv.outputItem
++                enabled: toolbarModel.isEnabled && Boolean(prv.outputItem)
++            }
++        }
++    }
++}
+diff --git a/src/projectscene/qml/Audacity/ProjectScene/toolbars/internal/ClassicMeter.qml b/src/projectscene/qml/Audacity/ProjectScene/toolbars/internal/ClassicMeter.qml
+new file mode 100644
+index 0000000000000000000000000000000000000000..ca6769f14930f6c8b9c93c973bf68e27d233fc4f
+--- /dev/null
++++ b/src/projectscene/qml/Audacity/ProjectScene/toolbars/internal/ClassicMeter.qml
+@@ -0,0 +1,189 @@
++/*
++* Audacity: A Digital Audio Editor
++*
++* Listening Tree: the meter part of a classic (Audacity 3 style) meter row: L and R level
++* bars across the full width, the dB scale under them, and a volume slider over them.
++*/
++import QtQuick
++
++import Muse.Ui
++import Muse.UiComponents
++
++import Audacity.Playback
++
++Item {
++    id: root
++
++    property var meterModel: null
++    property bool stereo: true
++
++    property real volumeLevel: 0
++    property real leftPressure: -145
++    property real leftRMS: -145
++    property real rightPressure: -145
++    property real rightRMS: -145
++
++    property NavigationPanel navigationPanel: null
++    property int navigationOrder: 0
++    property string volumeAccessibleName: ""
++
++    signal volumeLevelChangeRequested(var level)
++
++    implicitHeight: 28
++
++    function resetMeters() {
++        leftMeter.reset()
++        leftMeter.resetClipped()
++        rightMeter.reset()
++        rightMeter.resetClipped()
++    }
++
++    Column {
++        id: channelLabels
++
++        anchors.left: parent.left
++        anchors.top: parent.top
++        anchors.topMargin: 1
++
++        width: 10
++        spacing: 0
++
++        Text {
++            width: parent.width
++            height: root.stereo ? 8 : 14
++            text: root.stereo ? "L" : ""
++            color: ui.theme.fontPrimaryColor
++            font.pixelSize: 8
++            horizontalAlignment: Text.AlignHCenter
++            verticalAlignment: Text.AlignVCenter
++        }
++
++        Text {
++            width: parent.width
++            height: 8
++            visible: root.stereo
++            text: "R"
++            color: ui.theme.fontPrimaryColor
++            font.pixelSize: 8
++            horizontalAlignment: Text.AlignHCenter
++            verticalAlignment: Text.AlignVCenter
++        }
++    }
++
++    Item {
++        id: meterArea
++
++        anchors.left: channelLabels.right
++        anchors.leftMargin: 4
++        anchors.right: parent.right
++        anchors.top: parent.top
++        anchors.bottom: parent.bottom
++
++        Column {
++            id: bars
++
++            anchors.fill: parent
++            anchors.topMargin: 2
++
++            spacing: 2
++
++            HorizontalVolumePressureMeter {
++                id: leftMeter
++
++                x: ruler.x + ruler.leftTextMargin
++                width: ruler.effectiveWidth + leftMeter.overloadTotalSpace
++                height: root.stereo ? 6 : 14
++
++                meterModel: root.meterModel
++                currentVolumePressure: root.leftPressure
++                currentRMS: root.leftRMS
++
++                enabled: root.enabled
++            }
++
++            HorizontalVolumePressureMeter {
++                id: rightMeter
++
++                x: ruler.x + ruler.leftTextMargin
++                width: ruler.effectiveWidth + leftMeter.overloadTotalSpace
++
++                visible: root.stereo
++
++                meterModel: root.meterModel
++                currentVolumePressure: root.rightPressure
++                currentRMS: root.rightRMS
++
++                enabled: root.enabled
++            }
++
++            HorizontalVolumePressureRuler {
++                id: ruler
++
++                anchors.left: parent.left
++                anchors.right: parent.right
++                anchors.rightMargin: leftMeter.overloadWidth
++
++                meterModel: root.meterModel
++            }
++        }
++
++        VolumeSlider {
++            id: volumeSlider
++
++            anchors.left: parent.left
++            anchors.leftMargin: ruler.leftTextMargin - volumeSlider.handleWidth / 2
++            anchors.right: parent.right
++            anchors.rightMargin: leftMeter.overloadTotalSpace
++            anchors.top: parent.top
++            anchors.topMargin: 1
++
++            meterModel: root.meterModel
++            volumeLevel: root.volumeLevel
++
++            enabled: root.enabled
++
++            navigation.panel: root.navigationPanel
++            navigation.order: root.navigationOrder
++            navigation.accessible.name: root.volumeAccessibleName
++
++            onVolumeLevelMoved: function (level) {
++                root.resetMeters()
++                root.volumeLevelChangeRequested(Math.round(level * 100) / 100)
++            }
++
++            onHandlePressed: {
++                root.resetMeters()
++            }
++
++            onDecreaseRequested: {
++                if (volumeLevel <= from) {
++                    return
++                }
++                root.volumeLevelChangeRequested(Math.round(volumeLevel * 100) / 100 - stepSize)
++            }
++
++            onIncreaseRequested: {
++                if (volumeLevel >= to) {
++                    return
++                }
++                root.volumeLevelChangeRequested(Math.round(volumeLevel * 100) / 100 + stepSize)
++            }
++        }
++
++        // Clicking the clip indicator at the right end clears it
++        MouseArea {
++            anchors.top: bars.top
++            anchors.bottom: bars.bottom
++            anchors.right: bars.right
++
++            width: volumeSlider.handleWidth
++            z: 10
++
++            enabled: volumeSlider.handleX < (volumeSlider.width - volumeSlider.handleWidth - leftMeter.overloadWidth)
++
++            onClicked: {
++                root.resetMeters()
++            }
++        }
++    }
++}
+diff --git a/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp b/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp
+index 36529555bbd39d0c708659c2b5f7846782f3b1a3..97384065d17d1438faf4162a54fec430ddc5bd61 100644
+--- a/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp
++++ b/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp
+@@ -5,6 +5,8 @@
+ */
+ #include "audiodevicetoolbaritem.h"
+ 
++#include <algorithm>
++
+ #include "framework/global/containers.h"
+ #include "framework/global/translation.h"
+ 
+@@ -16,6 +18,8 @@ using namespace muse::actions;
+ // The same actions the "Audio setup" menu uses (handled by the playback controller)
+ static const ActionQuery CHANGE_PLAYBACK_DEVICE_QUERY("action://playback/change-playback-device");
+ static const ActionQuery CHANGE_RECORDING_DEVICE_QUERY("action://playback/change-recording-device");
++static const ActionQuery CHANGE_AUDIO_API_QUERY("action://playback/change-api");
++static const ActionQuery CHANGE_INPUT_CHANNELS_QUERY("action://playback/change-input-channels");
+ 
+ AudioDeviceToolBarItem::AudioDeviceToolBarItem(const UiAction& action, ToolBarItemType::Type type,
+                                                Direction direction, QObject* parent)
+@@ -33,10 +37,21 @@ AudioDeviceToolBarItem::AudioDeviceToolBarItem(const UiAction& action, ToolBarIt
+ 
+ QString AudioDeviceToolBarItem::label() const
+ {
+-    //: Label of the recording device dropdown in the playback toolbar
+-    return m_direction == Direction::Input ? muse::qtrc("projectscene", "Input")
+-           //: Label of the playback device dropdown in the playback toolbar
+-           : muse::qtrc("projectscene", "Output");
++    switch (m_direction) {
++    case Direction::Input:
++        //: Label of the recording device dropdown in the playback toolbar
++        return muse::qtrc("projectscene", "Input");
++    case Direction::Output:
++        //: Label of the playback device dropdown in the playback toolbar
++        return muse::qtrc("projectscene", "Output");
++    case Direction::Host:
++        //: Label of the audio host dropdown in the playback toolbar
++        return muse::qtrc("projectscene", "Host");
++    case Direction::Channels:
++        //: Label of the recording channels dropdown in the playback toolbar
++        return muse::qtrc("projectscene", "Channels");
++    }
++    return QString();
+ }
+ 
+ QString AudioDeviceToolBarItem::currentValue() const
+@@ -77,8 +92,66 @@ MenuItem* AudioDeviceToolBarItem::makeDeviceItem(const QString& id, const QStrin
+     return item;
+ }
+ 
++void AudioDeviceToolBarItem::rebuildHosts()
++{
++    const std::string currentApi = audioDriverController()->configuration().api;
++    const std::vector<std::string> apis = audioDriverController()->apis();
++
++    for (size_t i = 0; i < apis.size(); ++i) {
++        ActionQuery query = CHANGE_AUDIO_API_QUERY;
++        query.addParam("api_index", muse::Val(static_cast<int>(i)));
++        m_items << makeDeviceItem(QString::fromStdString(query.toString()), QString::fromStdString(apis.at(i)),
++                                  apis.at(i) == currentApi);
++    }
++
++    m_currentValue = QString::fromStdString(currentApi);
++}
++
++void AudioDeviceToolBarItem::rebuildChannels()
++{
++    const int selected = audioDriverController()->configuration().inputChannels;
++    const int available = audioDriverController()->inputChannelsAvailable();
++
++    // Same wording as the "Audio setup" menu
++    auto channelName = [](int channels) -> QString {
++        return channels == 1
++               //: %1 is the recording channel number
++               ? muse::qtrc("projectscene/toolbars", "%1 (Mono) Recording channel").arg(channels)
++               : channels == 2
++               //: %1 is the recording channel number
++               ? muse::qtrc("projectscene/toolbars", "%1 (Stereo) Recording channels").arg(channels)
++               : QString::number(channels);
++    };
++
++    for (int channels = 1; channels <= available; ++channels) {
++        ActionQuery query = CHANGE_INPUT_CHANNELS_QUERY;
++        query.addParam("input-channels_index", muse::Val(channels));
++        m_items << makeDeviceItem(QString::fromStdString(query.toString()), channelName(channels), channels == selected);
++    }
++
++    m_currentValue = available > 0 ? channelName(std::clamp(selected, 1, available))
++                     : muse::qtrc("projectscene", "No recording channels");
++}
++
+ void AudioDeviceToolBarItem::rebuild()
+ {
++    if (m_direction == Direction::Host || m_direction == Direction::Channels) {
++        // The open menu may still show the old items, so let them go once control returns to the event loop
++        for (MenuItem* item : std::as_const(m_items)) {
++            item->deleteLater();
++        }
++        m_items.clear();
++
++        if (m_direction == Direction::Host) {
++            rebuildHosts();
++        } else {
++            rebuildChannels();
++        }
++
++        emit devicesChanged();
++        return;
++    }
++
+     const bool input = m_direction == Direction::Input;
+     const audio::AudioConfiguration config = audioDriverController()->configuration();
+     const audio::AudioDeviceSelection selected = input ? config.inputDevice : config.outputDevice;
+diff --git a/src/projectscene/view/toolbars/audiodevicetoolbaritem.h b/src/projectscene/view/toolbars/audiodevicetoolbaritem.h
+index 4086e5597f5cb9d6bc9737f47a911be219a08470..273389b8c4406225280914e7f398151b842a5b14 100644
+--- a/src/projectscene/view/toolbars/audiodevicetoolbaritem.h
++++ b/src/projectscene/view/toolbars/audiodevicetoolbaritem.h
+@@ -2,8 +2,8 @@
+ * Audacity: A Digital Audio Editor
+ *
+ * Listening Tree: a dropdown in the playback toolbar for choosing the recording
+-* (input) or playback (output) device. It uses the same actions as the
+-* "Audio setup" menu, so both stay in step.
++* (input) or playback (output) device, the audio host, or the number of recording
++* channels. It uses the same actions as the "Audio setup" menu, so both stay in step.
+ */
+ #pragma once
+ 
+@@ -29,7 +29,9 @@ class AudioDeviceToolBarItem : public muse::uicomponents::ToolBarItem
+ public:
+     enum class Direction {
+         Input,
+-        Output
++        Output,
++        Host,       //!< the audio host (Core Audio on a Mac)
++        Channels    //!< how many channels to record
+     };
+ 
+     explicit AudioDeviceToolBarItem(const muse::ui::UiAction& action, muse::uicomponents::ToolBarItemType::Type type,
+@@ -46,6 +48,8 @@ signals:
+ 
+ private:
+     void rebuild();
++    void rebuildHosts();
++    void rebuildChannels();
+     muse::uicomponents::MenuItem* makeDeviceItem(const QString& id, const QString& title, bool checked);
+ 
+     const Direction m_direction;
+diff --git a/src/projectscene/view/toolbars/playbacktoolbarmodel.cpp b/src/projectscene/view/toolbars/playbacktoolbarmodel.cpp
+index f2364ffc1f500f4f4da5e950ad6680957458ca13..ef0d9c998fa06dc6dc0927d5fd7c781ab6322b04 100644
+--- a/src/projectscene/view/toolbars/playbacktoolbarmodel.cpp
++++ b/src/projectscene/view/toolbars/playbacktoolbarmodel.cpp
+@@ -51,6 +51,25 @@ static const ActionCode SNAP_ACTION_CODE("snap");
+ // Listening Tree: device dropdowns (the snap control is not shown in the toolbar)
+ static const ActionCode RECORDING_DEVICE_ACTION_CODE("lt-recording-device");
+ static const ActionCode PLAYBACK_DEVICE_ACTION_CODE("lt-playback-device");
++static const ActionCode AUDIO_HOST_ACTION_CODE("lt-audio-host");
++static const ActionCode RECORDING_CHANNELS_ACTION_CODE("lt-recording-channels");
++
++// Listening Tree: what the classic toolbar shows (ClassicToolBar.qml places each item itself)
++static const std::vector<ActionCode> CLASSIC_LAYOUT_ITEMS {
++    PLAYBACK_TOGGLE_PLAY_PAUSE_QUERY.toString(),
++    PLAYBACK_STOP_QUERY.toString(),
++    PLAYBACK_REWIND_START_QUERY.toString(),
++    PLAYBACK_REWIND_END_QUERY.toString(),
++    RECORD_START_QUERY.toString(),
++    LOOP_ACTION_CODE,
++    PLAYBACK_TIME,
++    RECORD_LEVEL_QUERY.toString(),
++    PLAYBACK_LEVEL_QUERY.toString(),
++    AUDIO_HOST_ACTION_CODE,
++    RECORDING_DEVICE_ACTION_CODE,
++    RECORDING_CHANNELS_ACTION_CODE,
++    PLAYBACK_DEVICE_ACTION_CODE,
++};
+ 
+ static PlaybackToolBarModel::ItemType itemType(const ActionCode& actionCode)
+ {
+@@ -71,7 +90,9 @@ static PlaybackToolBarModel::ItemType itemType(const ActionCode& actionCode)
+         { TOGGLE_GLOBAL_SPECTROGRAM_VIEW_ACTION_CODE, PlaybackToolBarModel::PLAYBACK_CONTROL },
+         { SNAP_ACTION_CODE, PlaybackToolBarModel::SNAP },
+         { RECORDING_DEVICE_ACTION_CODE, PlaybackToolBarModel::AUDIO_DEVICE },
+-        { PLAYBACK_DEVICE_ACTION_CODE, PlaybackToolBarModel::AUDIO_DEVICE }
++        { PLAYBACK_DEVICE_ACTION_CODE, PlaybackToolBarModel::AUDIO_DEVICE },
++        { AUDIO_HOST_ACTION_CODE, PlaybackToolBarModel::AUDIO_DEVICE },
++        { RECORDING_CHANNELS_ACTION_CODE, PlaybackToolBarModel::AUDIO_DEVICE }
+     };
+ 
+     return muse::value(types, actionCode, PlaybackToolBarModel::PROJECT_CONTROL);
+@@ -116,6 +137,25 @@ void PlaybackToolBarModel::load()
+     AbstractToolBarModel::load();
+ }
+ 
++bool PlaybackToolBarModel::classicLayout() const
++{
++    return m_classicLayout;
++}
++
++void PlaybackToolBarModel::setClassicLayout(bool classic)
++{
++    if (m_classicLayout == classic) {
++        return;
++    }
++
++    m_classicLayout = classic;
++    emit classicLayoutChanged();
++
++    if (m_inited) {
++        reload();
++    }
++}
++
+ void PlaybackToolBarModel::reload()
+ {
+     load();
+@@ -314,6 +354,17 @@ void PlaybackToolBarModel::updateActions()
+ {
+     ToolBarItemList items;
+ 
++    if (m_classicLayout) {
++        for (const ActionCode& code : CLASSIC_LAYOUT_ITEMS) {
++            if (ToolBarItem* item = makeLocalItem(code)) {
++                item->setIsTransparent(false);
++                items << item;
++            }
++        }
++        setItems(items);
++        return;
++    }
++
+     muse::ui::ToolConfig playbackConfig = uiState()->toolConfig(TOOLBAR_NAME,
+                                                                 ProjectSceneUiActions::defaultPlaybackToolBarConfig());
+ 
+@@ -395,6 +446,10 @@ ToolBarItem* PlaybackToolBarModel::makeLocalItem(const ActionCode& actionCode)
+         result = new projectscene::AudioDeviceToolBarItem(action, static_cast<ToolBarItemType::Type>(type),
+                                                           actionCode == RECORDING_DEVICE_ACTION_CODE
+                                                           ? AudioDeviceToolBarItem::Direction::Input
++                                                          : actionCode == AUDIO_HOST_ACTION_CODE
++                                                          ? AudioDeviceToolBarItem::Direction::Host
++                                                          : actionCode == RECORDING_CHANNELS_ACTION_CODE
++                                                          ? AudioDeviceToolBarItem::Direction::Channels
+                                                           : AudioDeviceToolBarItem::Direction::Output,
+                                                           this);
+         break;
+diff --git a/src/projectscene/view/toolbars/playbacktoolbarmodel.h b/src/projectscene/view/toolbars/playbacktoolbarmodel.h
+index 590bcef3e85bbe4de4a845f17848744600d4d2b1..a7a43a563915877315eb101a6c132b72dc49df0d 100644
+--- a/src/projectscene/view/toolbars/playbacktoolbarmodel.h
++++ b/src/projectscene/view/toolbars/playbacktoolbarmodel.h
+@@ -28,6 +28,10 @@ class PlaybackToolBarModel : public muse::uicomponents::AbstractToolBarModel
+ 
+     Q_PROPERTY(bool isEnabled READ isEnabled NOTIFY isEnabledChanged)
+ 
++    //! Listening Tree: the classic (Audacity 3 style) toolbar uses a fixed set of items,
++    //! whatever was customized for the regular playback toolbar
++    Q_PROPERTY(bool classicLayout READ classicLayout WRITE setClassicLayout NOTIFY classicLayoutChanged)
++
+     muse::GlobalInject<muse::ui::IUiConfiguration> uiConfiguration;
+     muse::GlobalInject<playback::IPlaybackConfiguration> configuration;
+ 
+@@ -58,10 +62,14 @@ public:
+ 
+     Q_INVOKABLE void load() override;
+ 
++    bool classicLayout() const;
++    void setClassicLayout(bool classic);
++
+     bool isEnabled() const;
+ 
+ signals:
+     void isEnabledChanged();
++    void classicLayoutChanged();
+ 
+ private:
+     void reload();
+@@ -87,5 +95,6 @@ private:
+     muse::uicomponents::ToolBarItem* makeLocalItem(const muse::actions::ActionCode& actionCode);
+ 
+     bool m_inited = false;
++    bool m_classicLayout = false;
+ };
+ }

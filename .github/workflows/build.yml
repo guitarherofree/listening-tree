@@ -12,6 +12,10 @@ on:
         type: choice
         options: [arm64, universal]
         default: arm64
+      preview:
+        description: Also start the app and attach a screenshot and its startup log (to check UI changes)
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -28,4 +32,30 @@ jobs:
         with:
           name: listening-tree-${{ github.sha }}-${{ inputs.arch }}
           path: dist/*.dmg*
+          retention-days: 7
+
+      - name: Start the app and take a screenshot
+        if: ${{ inputs.preview }}
+        shell: bash
+        run: |
+          set -u
+          mkdir -p preview
+          app="$(find work -maxdepth 2 -path "work/install-release-*" -name "*.app" | head -1)"
+          echo "Starting $app"
+          open "$app"
+          sleep 45
+          screencapture -x preview/screen.png || echo "screencapture failed"
+          sleep 10
+          screencapture -x preview/screen-later.png || true
+          logs="$HOME/Library/Application Support/ListeningTree/ListeningTree/logs"
+          cp "$logs"/*.log preview/ 2>/dev/null || echo "no logs in $logs"
+          ls -la preview
+          pkill -f "$app/Contents/MacOS" || true
+
+      - name: Attach the preview
+        if: ${{ inputs.preview }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: preview-${{ github.sha }}
+          path: preview/
           retention-days: 7
