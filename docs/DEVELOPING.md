@@ -103,6 +103,24 @@ specific wins (a key for "project focused" beats one for "any"), so give a key
 to only one command per context. Users can still change every shortcut in
 Preferences › Shortcuts; their changes are stored separately and win over the defaults.
 
+## How the app starts
+
+Listening Tree always opens on a project, ready to record. There is no welcome
+dialog, no first-launch setup (theme, clip style and layout keep their defaults and
+can be changed in Preferences) and no Home page with its project list: open
+projects with **File › Open** or **File › Open recent**. The code is in
+`patches/audacity/0008-Listening-Tree-open-straight-into-a-new-project-with.patch`:
+
+- `src/appshell/internal/startupscenario.cpp` decides what happens at launch:
+  a new, empty project unless the app was opened with a file, or it offers to
+  restore projects after a crash.
+- `src/project/internal/projectactionscontroller.cpp` keeps a project in the
+  window: **File › Close** and failed or cancelled opens carry on in a new, empty
+  project. A new project nobody has touched (no tracks, never saved) is closed
+  without asking to save, and opening a project or file replaces it instead of
+  opening a second window.
+- The Home and Project tabs only appear in developer mode, next to DevTools.
+
 ## The version number
 
 `VERSION` holds Listening Tree's own version (`MAJOR.MINOR.PATCH`). It is what

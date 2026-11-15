@@ -4,7 +4,7 @@
 
 1. **Checking.** At most once a day (at startup, or later if the app stays
    open; never during playback or recording), and whenever you click
-   **Check for updates** next to the Home and Project tabs (or choose
+   **Check for updates** at the top of the window (or choose
    **Help › Check for update**), the app asks GitHub for the newest release of
    `guitarherofree/listening-tree` and compares its version with its own.
    Turn the daily check off in **Preferences › General › Automatic update check**.
@@ -45,14 +45,15 @@ build from `scripts/run.sh` never changes the installed app's settings either.
 ## GitHub token (while the repository is private)
 
 GitHub only shows a private repository's releases to signed-in users, so the
-updater needs a read-only token. Without one, update checks fail with
-"Cannot connect to server".
+updater needs a read-only token. Without one, or with one that can't read the
+repository, **Check for updates** says so ("Couldn't check for updates … update token …").
 
 1. Go to <https://github.com/settings/personal-access-tokens/new>
    (a "fine-grained" token).
    - **Token name:** Listening Tree updates
    - **Expiration:** your choice (when it expires, make a new one and repeat step 2)
    - **Repository access:** Only select repositories › `listening-tree`
+     (the default, "Public repositories", can't see this private repository)
    - **Permissions › Repository permissions › Contents:** Read-only
 2. On your Mac, store it in your login Keychain:
 
@@ -113,7 +114,7 @@ want to stay where you are.
 
 | Symptom | What to do |
 |---|---|
-| "Cannot connect to server" when checking | No internet, or the repository is private and there is no valid token: `scripts/set-update-token.sh --check` |
+| "Couldn't check for updates" | The message says why: no internet, or a missing, expired or too-limited token. `scripts/set-update-token.sh --check` tests the token |
 | "You're up to date" but a release exists | The release is a pre-release or draft (ignored), or its tag isn't newer than the installed version, or it has no `.dmg` |
 | The download fails its checksum | Try again; if it keeps failing, the uploaded file is broken: re-release |
 | The update didn't install | See `~/Library/Logs/Listening Tree/updates.log`; the downloaded disk image stays in `~/Library/Application Support/ListeningTree/ListeningTree/update/` |

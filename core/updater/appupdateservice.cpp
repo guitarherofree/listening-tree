@@ -61,6 +61,32 @@ void releaseDownloadLater(const AppUpdateService* service)
     // Not synchronously: we may be inside a signal emitted by the downloader's network reply.
     QTimer::singleShot(0, [service]() { s_downloads.erase(service); });
 }
+
+// What the "Couldn't check for updates" message says, from the HTTP status of GitHub's answer.
+// Upstream only ever said "Cannot connect to server", whatever the cause.
+std::string checkFailureMessage(const Ret& networkRet)
+{
+    const int status = networkRet.data<int>("status", 0);
+    const bool hasToken = !lt::updater::token().isEmpty();
+
+    if (status == 401) {
+        return "GitHub says the update token in your Keychain has expired or isn’t valid. "
+               "Make a new token and store it again (see “GitHub token” in docs/UPDATING.md).";
+    }
+    if (status == 403 || status == 404) {
+        if (!hasToken) {
+            return "GitHub only shows a private repository’s releases to a signed-in user, and no update token "
+                   "is stored in your Keychain. Add one (see “GitHub token” in docs/UPDATING.md).";
+        }
+        return "The update token in your Keychain can’t read the " + lt::updater::repository().toStdString()
+               + " repository on GitHub. Make a token with access to that repository (Contents: Read-only) "
+                 "and store it again (see “GitHub token” in docs/UPDATING.md).";
+    }
+    if (status == 0) {
+        return "Couldn’t reach GitHub. Check your internet connection and try again.";
+    }
+    return "GitHub answered with an error (HTTP " + std::to_string(status) + "). Please try again later.";
+}
 }
 
 void AppUpdateService::init()
@@ -98,6 +124,7 @@ async::Promise<RetVal<ReleaseInfo> > AppUpdateService::checkForUpdate()
                        << (lt::updater::token().isEmpty()
                     ? " (if the GitHub repository is private, add a token: scripts/set-update-token.sh)" : "");
                 m_lastCheckResult.ret = make_ret(Err::NetworkError, res.ret.toString());
+                m_lastCheckResult.ret.setData("userMessage", checkFailureMessage(res.ret));
                 (void)resolve(m_lastCheckResult);
                 return;
             }

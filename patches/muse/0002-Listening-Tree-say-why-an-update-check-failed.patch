@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 20:01:34 -0500
+Subject: [PATCH] Listening Tree: say why an update check failed
+
+
+diff --git a/framework/update/internal/appupdatescenario.cpp b/framework/update/internal/appupdatescenario.cpp
+index e64af949104c073f1e679d40b66bd70302184c3a..f3d5aa2124263f3460f7427991b790ce0958ed04 100644
+--- a/framework/update/internal/appupdatescenario.cpp
++++ b/framework/update/internal/appupdatescenario.cpp
+@@ -57,7 +57,8 @@ void AppUpdateScenario::checkForUpdate(bool manual)
+             if (noUpdate) {
+                 showNoUpdateMsg();
+             } else if (!res.ret) {
+-                showServerErrorMsg();
++                // Listening Tree: the update service can say what went wrong (e.g. a GitHub token problem)
++                showServerErrorMsg(res.ret.data<std::string>("userMessage", std::string()));
+             } else {
+                 showReleaseInfo(res.val);
+             }
+@@ -176,8 +177,14 @@ Promise<Ret> AppUpdateScenario::showReleaseInfo(const ReleaseInfo& info)
+     });
+ }
+ 
+-Promise<IInteractive::Result> AppUpdateScenario::showServerErrorMsg()
++Promise<IInteractive::Result> AppUpdateScenario::showServerErrorMsg(const std::string& reason)
+ {
++    if (!reason.empty()) {
++        return interactive()->error(muse::trc("update", "Couldn’t check for updates"), reason,
++                                    {}, int(IInteractive::Button::NoButton), { IInteractive::WithIcon },
++                                    muse::trc("update", "Check for update"));
++    }
++
+     return interactive()->error(muse::trc("update", "Cannot connect to server"),
+                                 muse::trc("update", "Sorry - please try again later"),
+                                 {}, int(IInteractive::Button::NoButton), { IInteractive::WithIcon },
+diff --git a/framework/update/internal/appupdatescenario.h b/framework/update/internal/appupdatescenario.h
+index 3ef072e5d7e2142e3d8198110130f73c306ce86e..4be720f3239ffba640b9c303b38610727a05c506 100644
+--- a/framework/update/internal/appupdatescenario.h
++++ b/framework/update/internal/appupdatescenario.h
+@@ -61,7 +61,7 @@ private:
+ 
+     async::Promise<IInteractive::Result> showNoUpdateMsg();
+     muse::async::Promise<Ret> showReleaseInfo(const ReleaseInfo& info);
+-    async::Promise<IInteractive::Result> showServerErrorMsg();
++    async::Promise<IInteractive::Result> showServerErrorMsg(const std::string& reason = std::string());
+ 
+     muse::async::Promise<Ret> downloadRelease();
+     muse::async::Promise<Ret> askToCloseAppAndCompleteInstall(const io::path_t& installerPath);

@@ -1,0 +1,399 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 20:01:34 -0500
+Subject: [PATCH] Listening Tree: open straight into a new project, without the
+ welcome dialog or Home page
+
+
+diff --git a/src/appshell/internal/applicationactioncontroller.cpp b/src/appshell/internal/applicationactioncontroller.cpp
+index c18a97f9959c35ce0f65c81b943fd0681c6ac167..889451fec79a4e214f2e5b9ecf8791859e0dd6c3 100644
+--- a/src/appshell/internal/applicationactioncontroller.cpp
++++ b/src/appshell/internal/applicationactioncontroller.cpp
+@@ -58,6 +58,11 @@ void ApplicationActionController::preInit()
+         }
+         QWindow* window = mainWindow() ? mainWindow()->qWindow() : nullptr;
+         if (window && !window->isVisible()) {
++            // Listening Tree: closing the window closed its project (there is no Home page),
++            // so it comes back with a new, empty one, ready to record
++            if (!isProjectOpened()) {
++                dispatcher()->dispatch("file-new");
++            }
+             window->show();
+             window->requestActivate();
+         }
+diff --git a/src/appshell/internal/startupscenario.cpp b/src/appshell/internal/startupscenario.cpp
+index a0af50177afedea673f5e0bc6f44799555ddcf33..a0db6a21a2459daa7ec999d6d3969a2b452019a9 100644
+--- a/src/appshell/internal/startupscenario.cpp
++++ b/src/appshell/internal/startupscenario.cpp
+@@ -36,10 +36,8 @@ using namespace au::project;
+ 
+ static const muse::Settings::Key LAST_UPDATE_CHECK_DAY_KEY("appshell", "application/lastUpdateCheckRequestDay");
+ 
+-static const muse::UriQuery FIRST_LAUNCH_SETUP_URI("audacity://firstLaunchSetup?floating=true");
+-static const muse::Uri ALPHA_WELCOME_POPUP("audacity://alphaWelcomePopup");
+-static const muse::UriQuery WELCOME_DIALOG_URI("audacity://welcomedialog");
+-static const muse::Uri HOME_URI("audacity://home");
++// Listening Tree: no first-launch setup, welcome dialog or Home page at startup; the app
++// always opens on a project, ready to record.
+ static const muse::Uri PROJECT_URI("audacity://project");
+ 
+ static StartupModeType modeTypeFromString(const std::string& str)
+@@ -148,8 +146,10 @@ void StartupScenario::runAfterSplashScreen()
+     if (canOverrideStartupMode && sessionsManager()->hasProjectsForRestore()) {
+         modeType = StartupModeType::Recovery;
+     }
+-    if (canOverrideStartupMode && !configuration()->hasCompletedFirstLaunchSetup()) {
+-        modeType = StartupModeType::FirstLaunch;
++    // Listening Tree: skip the first-launch setup (theme, clip style, layout). The defaults
++    // apply, and all of them can be changed in Preferences.
++    if (!configuration()->hasCompletedFirstLaunchSetup()) {
++        configuration()->setHasCompletedFirstLaunchSetup(true);
+     }
+ 
+     const muse::Uri startupUri = startupPageUri(modeType);
+@@ -182,11 +182,13 @@ StartupModeType StartupScenario::resolveStartupModeType() const
+         return StartupModeType::StartEmpty;
+     }
+ 
+-    if (!m_startupTypeStr.empty()) {
+-        return modeTypeFromString(m_startupTypeStr);
+-    }
++    const StartupModeType type = !m_startupTypeStr.empty()
++                                 ? modeTypeFromString(m_startupTypeStr)
++                                 : configuration()->startupModeType();
+ 
+-    return configuration()->startupModeType();
++    // Listening Tree: there is no Home page to start on, so "start empty" means
++    // starting with a new, empty project
++    return type == StartupModeType::StartEmpty ? StartupModeType::StartWithNewProject : type;
+ }
+ 
+ void StartupScenario::onStartupPageOpened(StartupModeType modeType)
+@@ -253,66 +255,17 @@ void StartupScenario::showStartupDialogsIfNeed(StartupModeType)
+         return;
+     }
+ 
+-    const auto showWelcomeDialogIfNeed = [this]() {
+-        const auto showWelcomePage = [this]() {
+-            const std::string welcomeDialogLastShownVersion(configuration()->welcomeDialogLastShownVersion());
+-            const std::string currentAudacityVersion(configuration()->audacityVersion());
+-
+-            if (welcomeDialogLastShownVersion < currentAudacityVersion) {
+-                configuration()->setWelcomeDialogShowOnStartup(true); // override user preference
+-                configuration()->setWelcomeDialogLastShownIndex(-1); // reset
+-            }
+-
+-            if (!configuration()->welcomeDialogShowOnStartup()) {
+-                return;
+-            }
+-
+-            muse::UriQuery query(WELCOME_DIALOG_URI);
+-            query.set("modal", false);
+-            query.set("floating", true);
+-            interactive()->open(query);
+-
+-            configuration()->setWelcomeDialogLastShownVersion(configuration()->audacityVersion());
+-        };
+-
+-        if (!configuration()->hasCompletedFirstLaunchSetup()) {
+-            interactive()->open(FIRST_LAUNCH_SETUP_URI).then(this, [showWelcomePage](const muse::Val&, auto resolve) {
+-                return resolve();
+-            });
+-        } else {
+-            showWelcomePage();
+-        }
+-    };
+-
+-    if (!appUpdateScenario() || !appUpdateScenario()->hasUpdate()) {
+-        showWelcomeDialogIfNeed();
+-        return;
++    // Listening Tree: no welcome dialog or first-launch setup. The only thing that can
++    // appear at startup is the notice that a new version is available.
++    if (appUpdateScenario() && appUpdateScenario()->hasUpdate()) {
++        appUpdateScenario()->showUpdate();
+     }
+-
+-    auto promise = appUpdateScenario()->showUpdate();
+-    promise.onResolve(this, [showWelcomeDialogIfNeed](const muse::Ret& ret) {
+-        // Ok means close the app and install the update
+-        if (ret.code() == static_cast<int>(muse::Ret::Code::Ok)) {
+-            return;
+-        }
+-        showWelcomeDialogIfNeed();
+-    });
+ }
+ 
+-muse::Uri StartupScenario::startupPageUri(StartupModeType modeType) const
++muse::Uri StartupScenario::startupPageUri(StartupModeType) const
+ {
+-    switch (modeType) {
+-    case StartupModeType::StartEmpty:
+-    case StartupModeType::StartWithNewProject:
+-    case StartupModeType::Recovery:
+-        return HOME_URI;
+-    case StartupModeType::StartWithProject:
+-    case StartupModeType::ContinueLastSession:
+-    case StartupModeType::FirstLaunch:
+-        return PROJECT_URI;
+-    }
+-
+-    return HOME_URI;
++    // Listening Tree: always the project page (a new project is created on it if needed)
++    return PROJECT_URI;
+ }
+ 
+ void StartupScenario::openProject(const ProjectFile& file)
+@@ -334,7 +287,19 @@ void StartupScenario::restoreLastSession()
+         } else {
+             sessionsManager()->reset();
+         }
++        startNewProjectIfNoneOpen();
+     });
++    promise.onReject(this, [this](int, const std::string&) {
++        startNewProjectIfNoneOpen();
++    });
++}
++
++void StartupScenario::startNewProjectIfNoneOpen()
++{
++    // Listening Tree: there is no Home page, so never leave the window without a project
++    if (!globalContext()->currentProject()) {
++        dispatcher()->dispatch("file-new");
++    }
+ }
+ 
+ void StartupScenario::tryCheckForUpdate()
+diff --git a/src/appshell/internal/startupscenario.h b/src/appshell/internal/startupscenario.h
+index 2fb88b0eb50dc128b1949a995c5091a300b9ca6b..6fc0cf59a00284d314df69f91737e5170114f083 100644
+--- a/src/appshell/internal/startupscenario.h
++++ b/src/appshell/internal/startupscenario.h
+@@ -34,6 +34,7 @@
+ #include "update/iappupdatescenario.h"
+ #include "record/irecordcontroller.h"
+ #include "playback/iplaybackcontroller.h"
++#include "context/iglobalcontext.h"
+ 
+ #include "appshell/iappshellconfiguration.h"
+ #include "appshell/internal/isessionsmanager.h"
+@@ -52,6 +53,7 @@ class StartupScenario : public au::appshell::IStartupScenario, public muse::asyn
+     muse::ContextInject<muse::update::IAppUpdateScenario> appUpdateScenario { this };
+     muse::ContextInject<record::IRecordController> recordController { this };
+     muse::ContextInject<playback::IPlaybackController> playbackController { this };
++    muse::ContextInject<au::context::IGlobalContext> globalContext { this };
+ 
+ public:
+     StartupScenario(const muse::modularity::ContextPtr& ctx)
+@@ -84,6 +86,7 @@ private:
+     void openProject(const au::project::ProjectFile& file);
+ 
+     void restoreLastSession();
++    void startNewProjectIfNoneOpen();
+     bool alreadyCheckedForUpdateToday() const;
+     bool isAudioActive() const;
+     void tryCheckForUpdate();
+diff --git a/src/appshell/qml/Audacity/AppShell/MainToolBar.qml b/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
+index c73b091383f903f9418ce950c0614398b99567d8..5d41772d9280c796ae8bda4bdd6033d69bd4f1cd 100644
+--- a/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
++++ b/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
+@@ -43,7 +43,8 @@ Item {
+     }
+ 
+     function focusOnFirst() {
+-        var btn = radioButtonList.itemAtIndex(0)
++        // Listening Tree: release builds have no page tabs; leave keyboard focus alone then
++        var btn = radioButtonList.count > 0 ? radioButtonList.itemAtIndex(0) : null
+         if (btn) {
+             btn.navigation.requestActive()
+         }
+@@ -72,6 +73,9 @@ Item {
+             id: radioButtonList
+             spacing: 0
+ 
++            // Listening Tree: the Home/Project tabs only exist in developer mode
++            visible: count > 0
++
+             model: toolBarModel
+ 
+             delegate: PageTabButton {
+diff --git a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
+index 36683d1f8d5dfa61bb60d3573769ec3247f35045..ee1e206c7c170f1e6aaf16dad6a9e7d67a1bdad6 100644
+--- a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
++++ b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
+@@ -91,11 +91,13 @@ void MainToolBarModel::load()
+     beginResetModel();
+ 
+     m_items.clear();
+-    m_items << buildItem(muse::qtrc("appshell", "Home"), HOME_PAGE, true);
+-    m_items << buildItem(muse::qtrc("appshell", "Project"), PROJECT_PAGE, false);
+     // m_items << buildItem(muse::qtrc("appshell", "Publish"), PUBLISH_PAGE, false);
+ 
++    // Listening Tree: the window always shows the project, so there are no Home and
++    // Project tabs. Developer mode keeps them, next to DevTools.
+     if (globalConfiguration()->devModeEnabled()) {
++        m_items << buildItem(muse::qtrc("appshell", "Home"), HOME_PAGE, true);
++        m_items << buildItem(muse::qtrc("appshell", "Project"), PROJECT_PAGE, false);
+         m_items << buildItem(muse::qtrc("appshell", "DevTools"), DEVTOOLS_PAGE, true);
+     }
+ 
+diff --git a/src/project/internal/projectactionscontroller.cpp b/src/project/internal/projectactionscontroller.cpp
+index 0f46bf1493fab086742ef14f90fc7e95bbc599b4..b8fa124d264370990b2e6035808077cfe0d7f835 100644
+--- a/src/project/internal/projectactionscontroller.cpp
++++ b/src/project/internal/projectactionscontroller.cpp
+@@ -181,7 +181,10 @@ void ProjectActionsController::init()
+             return;
+         }
+ 
+-        closeOpenedProject(false);
++        // Listening Tree: no Home page; carry on in a new, empty project
++        if (closeOpenedProject(false)) {
++            showProjectOrStartNew();
++        }
+     });
+ 
+     dispatcher()->reg(this, OPEN_CUSTOM_FFMPEG_OPTIONS, this, &ProjectActionsController::openCustomFFmpegOptions);
+@@ -362,7 +365,7 @@ void ProjectActionsController::open(const muse::actions::ActionData& args)
+     if (url.isValid() && !url.isEmpty() && !url.isLocalFile()) {
+         ret = openProject(ProjectFile(url, displayNameOverride));
+         if (!ret) {
+-            openPageIfNeed(HOME_PAGE_URI);
++            showProjectOrStartNew();
+         }
+         return;
+     }
+@@ -404,7 +407,8 @@ void ProjectActionsController::open(const muse::actions::ActionData& args)
+     }
+ 
+     if (!ret) {
+-        openPageIfNeed(HOME_PAGE_URI);
++        // Listening Tree: e.g. the Open dialog was cancelled; stay on the project
++        showProjectOrStartNew();
+     }
+ }
+ 
+@@ -453,7 +457,7 @@ void ProjectActionsController::openCloudProject(const muse::actions::ActionData&
+ 
+     Ret ret = openCloudProject(localPath.value_or(io::path_t {}), cloudProjectId, snapshotId);
+     if (!ret) {
+-        openPageIfNeed(HOME_PAGE_URI);
++        showProjectOrStartNew();
+     }
+ }
+ 
+@@ -503,7 +507,7 @@ void ProjectActionsController::importStartupMedia(const muse::actions::ActionDat
+     }
+ 
+     if (!ret) {
+-        openPageIfNeed(HOME_PAGE_URI);
++        showProjectOrStartNew();
+     }
+ }
+ 
+@@ -524,7 +528,14 @@ muse::Ret ProjectActionsController::processMediaFiles(const muse::io::paths_t& p
+         actualPaths.emplace_back(actualPath);
+     }
+ 
+-    if (globalContext()->currentProject()) {
++    if (const IAudacityProjectPtr current = globalContext()->currentProject()) {
++        // Listening Tree: import into the empty project the window started with
++        // rather than opening another window
++        if (isUntouchedNewProject(current)) {
++            openPageIfNeed(PROJECT_PAGE_URI);
++            return current->import(actualPaths);
++        }
++
+         QStringList args;
+         args << "--session-type" << "start-with-new";
+         for (const auto& actualPath : actualPaths) {
+@@ -594,7 +605,8 @@ bool ProjectActionsController::closeOpenedProject(const bool quitApp)
+         return true;
+     }
+ 
+-    if (project->hasUnsavedChanges()) {
++    // Listening Tree: an empty project nobody has touched has nothing to save
++    if (project->hasUnsavedChanges() && !isUntouchedNewProject(project)) {
+         const IInteractive::Button btn = askAboutSavingProject(project);
+ 
+         if (btn == IInteractive::Button::Cancel) {
+@@ -627,13 +639,10 @@ bool ProjectActionsController::closeOpenedProject(const bool quitApp)
+         muse::async::Async::call(this, [this](){
+             dispatcher()->dispatch("quit", actions::ActionData::make_arg1<bool>(false));
+         });
+-    } else {
+-        Ret ret = openPageIfNeed(HOME_PAGE_URI);
+-        if (!ret) {
+-            LOGE() << ret.toString();
+-        }
+     }
+ 
++    // Listening Tree: there is no Home page to go to. "Close project" carries on in a new,
++    // empty project (see "file-close"); quitting and restarting don't need one.
+     return true;
+ }
+ 
+@@ -1032,6 +1041,12 @@ muse::Ret ProjectActionsController::openProject(const muse::io::path_t& path, co
+ 
+     //! Step 4. Check, if a any project is already open in the current window,
+     //! then create a new instance
++    //! Listening Tree: unless it's the empty project the window started with; replace that one
++    if (const IAudacityProjectPtr current = globalContext()->currentProject(); isUntouchedNewProject(current)) {
++        current->close();
++        globalContext()->setCurrentProject(nullptr);
++    }
++
+     if (globalContext()->currentProject()) {
+         QStringList args;
+         args << actualPath.toQString();
+@@ -1067,6 +1082,30 @@ IAudacityProjectPtr ProjectActionsController::createProjectInCurrentWindow()
+     return project;
+ }
+ 
++bool ProjectActionsController::isUntouchedNewProject(const IAudacityProjectPtr& project) const
++{
++    // A project made by "New" (or at startup) that has never been saved and has no tracks yet.
++    // New projects always count as unsaved, so without this check quitting right after
++    // launch would ask to save an empty project.
++    if (!project || !project->isNewlyCreated() || project->isImported() || project->isCloudProject()) {
++        return false;
++    }
++
++    const auto tracks = project->trackeditProject();
++    return tracks && tracks->trackIdList().empty();
++}
++
++void ProjectActionsController::showProjectOrStartNew()
++{
++    if (!globalContext()->currentProject() && !createProjectInCurrentWindow()) {
++        LOGE() << "Failed to create a new project";
++        openPageIfNeed(HOME_PAGE_URI); // last resort, so the window isn't blank
++        return;
++    }
++
++    openPageIfNeed(PROJECT_PAGE_URI);
++}
++
+ Ret ProjectActionsController::openCloudProject(const io::path_t& localPath, const String& projectId,
+                                                const String& snapshotId, bool forceOverwrite)
+ {
+@@ -1820,7 +1859,7 @@ void ProjectActionsController::handleCloudOpenError(const muse::Ret& error, cons
+         return;
+     }
+ 
+-    openPageIfNeed(HOME_PAGE_URI);
++    showProjectOrStartNew();
+ }
+ 
+ void ProjectActionsController::handleCloudSaveError(const muse::Ret& error)
+diff --git a/src/project/internal/projectactionscontroller.h b/src/project/internal/projectactionscontroller.h
+index 70f1f75b40136ad3255a4e4543e688d29d5254f1..3576f3771817ce77bba96f69ac255610b957e740 100644
+--- a/src/project/internal/projectactionscontroller.h
++++ b/src/project/internal/projectactionscontroller.h
+@@ -96,6 +96,9 @@ private:
+     muse::Ret loadWithFallback(const IAudacityProjectPtr& project, const muse::io::path_t& loadPath, const std::string& format);
+     muse::Ret doOpenProject(const muse::io::path_t& filePath);
+     IAudacityProjectPtr createProjectInCurrentWindow();
++    // Listening Tree: the window always shows a project (there is no Home page)
++    bool isUntouchedNewProject(const IAudacityProjectPtr& project) const;
++    void showProjectOrStartNew();
+     muse::Ret openCloudProject(const muse::io::path_t& localPath, const muse::String& projectId,
+                                const muse::String& snapshotId = muse::String(), bool forceOverwrite = false);
+     //! TODO AU4

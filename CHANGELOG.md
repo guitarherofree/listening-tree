@@ -10,6 +10,15 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-14
+
+**Listening Tree now opens ready to record.**
+
+- Every launch starts in a new, empty project, so you can press **R** straight away. The welcome dialog and the first-launch setup are gone (theme, clip style and layout can still be changed in **Preferences**).
+- The Home screen with its project list is gone. Open projects with **File › Open** or **File › Open recent**. Opening a project or dropping in an audio file uses the empty project's window instead of opening a second one.
+- **File › Close** leaves you in a fresh, empty project. Quitting or closing an empty project you never touched no longer asks you to save it.
+- If an update check fails, the message now says why (for example, a GitHub token that can't read the repository) instead of "Cannot connect to server".
+
 ## [0.3.0] - 2026-11-14
 
 **New keyboard shortcuts.** Click in the track area first so the keys go to your project.
