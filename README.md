@@ -20,7 +20,8 @@ scripts/run.sh                   # start it
 ```
 
 To install a published version: `scripts/install.sh --latest`. After that the app
-updates itself (**Help › Check for update**, or automatically once a day).
+updates itself: it checks once a day, and the **Check for updates** button in
+the main window (next to the Home and Project tabs) checks right away.
 
 ## How this repository is organized
 

@@ -10,6 +10,10 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-14
+
+- **Check for updates from the main window.** A button next to the Home and Project tabs checks for a new version. When one is available it changes to **Update available**; click it to see what's new and install it. (**Help › Check for update** still works too.)
+
 ## [0.1.1] - 2026-11-14
 
 A small update to confirm that in-app updates work.

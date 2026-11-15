@@ -1,8 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Listening Tree <listening-tree@localhost>
 Date: Sat, 14 Nov 2026 13:14:24 -0500
-Subject: [PATCH 4/5] Listening Tree: install downloaded updates in place on
- macOS
+Subject: [PATCH] Listening Tree: install downloaded updates in place on macOS
 
 When the user chooses to install an update, start the bundled installer script
 after the app quits instead of opening the disk image in Finder.

@@ -25,7 +25,7 @@ export_patches() {
     local out="$1"; shift
     local tmp
     tmp="$(mktemp -d)"
-    "$@" format-patch --quiet --zero-commit --no-signature --full-index --no-stat \
+    "$@" format-patch --quiet --no-numbered --zero-commit --no-signature --full-index --no-stat \
         --output-directory "$tmp" lt-base..HEAD -- . ':(exclude)muse' ':(exclude)muse_deps' >/dev/null
     mkdir -p "$out"
     find "$out" -maxdepth 1 -name '*.patch' -delete

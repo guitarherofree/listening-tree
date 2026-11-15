@@ -1,0 +1,193 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Sat, 14 Nov 2026 19:02:56 -0500
+Subject: [PATCH] Listening Tree: Check for updates button in the main window
+
+Adds a button next to the Home/Project tabs that checks GitHub for a new
+version. It reads "Update available" when the automatic check has found one,
+and clicking it shows the release notes and install choices.
+
+diff --git a/src/appshell/qml/Audacity/AppShell/MainToolBar.qml b/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
+index f7e2b8d23b61faeb0a190f086f34ae7b942c1e51..c73b091383f903f9418ce950c0614398b99567d8 100644
+--- a/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
++++ b/src/appshell/qml/Audacity/AppShell/MainToolBar.qml
+@@ -29,8 +29,8 @@ import Audacity.AppShell
+ Item {
+     id: root
+ 
+-    width: radioButtonList.width
+-    height: radioButtonList.height
++    width: contentRow.width
++    height: contentRow.height
+ 
+     property alias navigation: navPanel
+ 
+@@ -64,33 +64,61 @@ Item {
+         accessible.name: qsTrc("appshell", "Main toolbar")
+     }
+ 
+-    RadioButtonGroup {
+-        id: radioButtonList
+-        spacing: 0
++    Row {
++        id: contentRow
++        spacing: 16
+ 
+-        model: toolBarModel
++        RadioButtonGroup {
++            id: radioButtonList
++            spacing: 0
+ 
+-        delegate: PageTabButton {
+-            id: radioButtonDelegate
++            model: toolBarModel
+ 
+-            enabled: model.enabled
++            delegate: PageTabButton {
++                id: radioButtonDelegate
+ 
+-            ButtonGroup.group: radioButtonList.radioButtonGroup
++                enabled: model.enabled
+ 
+-            spacing: 0
+-            leftPadding: 12
++                ButtonGroup.group: radioButtonList.radioButtonGroup
+ 
+-            normalStateFont: model.isTitleBold ? ui.theme.largeBodyBoldFont : ui.theme.largeBodyFont
++                spacing: 0
++                leftPadding: 12
+ 
+-            navigation.name: model.title
+-            navigation.panel: navPanel
+-            navigation.order: model.index
++                normalStateFont: model.isTitleBold ? ui.theme.largeBodyBoldFont : ui.theme.largeBodyFont
++
++                navigation.name: model.title
++                navigation.panel: navPanel
++                navigation.order: model.index
++
++                checked: model.uri === root.currentUri
++                title: model.title
++
++                onToggled: {
++                    root.selected(model.uri)
++                }
++            }
++        }
++
++        // Listening Tree: check for updates from the main window. Shows "Update available"
++        // when the automatic check has found a newer release on GitHub.
++        FlatButton {
++            id: updateButton
+ 
+-            checked: model.uri === root.currentUri
+-            title: model.title
++            anchors.verticalCenter: parent.verticalCenter
++
++            text: toolBarModel.updateAvailable ? qsTrc("appshell", "Update available")
++                  : toolBarModel.updateCheckInProgress ? qsTrc("appshell", "Checking for updates…")
++                  : qsTrc("appshell", "Check for updates")
++            accentButton: toolBarModel.updateAvailable
++            enabled: !toolBarModel.updateCheckInProgress
++
++            navigation.name: "CheckForUpdates"
++            navigation.panel: navPanel
++            navigation.order: 1000
++            accessible.name: text
+ 
+-            onToggled: {
+-                root.selected(model.uri)
++            onClicked: {
++                toolBarModel.checkForUpdates()
+             }
+         }
+     }
+diff --git a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
+index 1c3daca5a972c784dbd6ad7c56d138c6b308c9c8..36683d1f8d5dfa61bb60d3573769ec3247f35045 100644
+--- a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
++++ b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.cpp
+@@ -105,6 +105,42 @@ void MainToolBarModel::load()
+     context()->currentProjectChanged().onNotify(this, [this]() {
+         updateNotationPageItem();
+     });
++
++    // Listening Tree: keep the update button in step with update checks, including the automatic one
++    if (appUpdateScenario()) {
++        appUpdateScenario()->checkInProgressChanged().onNotify(this, [this]() {
++            emit updateStateChanged();
++        });
++    }
++}
++
++// Listening Tree: the update button in the main toolbar ------------------------------------
++
++bool MainToolBarModel::updateCheckInProgress() const
++{
++    return appUpdateScenario() && appUpdateScenario()->checkInProgress();
++}
++
++bool MainToolBarModel::updateAvailable() const
++{
++    return appUpdateScenario() && appUpdateScenario()->hasUpdate();
++}
++
++void MainToolBarModel::checkForUpdates()
++{
++    if (!appUpdateScenario()) {
++        return;
++    }
++
++    if (appUpdateScenario()->hasUpdate()) {
++        // Already found by the automatic check: show its release notes and choices again
++        appUpdateScenario()->showUpdate().onResolve(this, [this](const muse::Ret&) {
++            emit updateStateChanged(); // e.g. "Skip this version" hides the badge
++        });
++        return;
++    }
++
++    appUpdateScenario()->checkForUpdate(/*manual*/ true);
+ }
+ 
+ void MainToolBarModel::updateNotationPageItem()
+diff --git a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.h b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.h
+index 4b94076a1cd118cb75213897815c402f62012d6f..0931f5cc7b4cb900cd2ae9ccfdf9f177a28f6c06 100644
+--- a/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.h
++++ b/src/appshell/qml/Audacity/AppShell/maintoolbarmodel.h
+@@ -31,6 +31,7 @@
+ #include "modularity/ioc.h"
+ #include "iglobalconfiguration.h"
+ #include "context/iglobalcontext.h"
++#include "update/iappupdatescenario.h" // Listening Tree: update button
+ 
+ namespace au::appshell {
+ class MainToolBarModel : public QAbstractListModel, public muse::async::Asyncable, public muse::Contextable
+@@ -38,9 +39,14 @@ class MainToolBarModel : public QAbstractListModel, public muse::async::Asyncabl
+     Q_OBJECT
+     QML_ELEMENT
+ 
++    // Listening Tree: state of the "Check for updates" button in the main toolbar
++    Q_PROPERTY(bool updateCheckInProgress READ updateCheckInProgress NOTIFY updateStateChanged)
++    Q_PROPERTY(bool updateAvailable READ updateAvailable NOTIFY updateStateChanged)
++
+     muse::GlobalInject<muse::IGlobalConfiguration> globalConfiguration;
+ 
+     muse::ContextInject<au::context::IGlobalContext> context { this };
++    muse::ContextInject<muse::update::IAppUpdateScenario> appUpdateScenario { this };
+ 
+ public:
+     explicit MainToolBarModel(QObject* parent = nullptr);
+@@ -51,6 +57,14 @@ public:
+ 
+     Q_INVOKABLE void load();
+ 
++    // Listening Tree: the update button in the main toolbar
++    bool updateCheckInProgress() const;
++    bool updateAvailable() const;
++    Q_INVOKABLE void checkForUpdates();
++
++signals:
++    void updateStateChanged();
++
+ private:
+     enum Roles {
+         TitleRole = Qt::UserRole + 1,

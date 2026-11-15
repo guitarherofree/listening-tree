@@ -1,8 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Listening Tree <listening-tree@localhost>
 Date: Sat, 14 Nov 2026 13:39:45 -0500
-Subject: [PATCH 5/5] Listening Tree: describe GitHub update checks in
- Preferences
+Subject: [PATCH] Listening Tree: describe GitHub update checks in Preferences
 
 
 diff --git a/src/preferences/qml/Audacity/Preferences/internal/AutomaticUpdateSection.qml b/src/preferences/qml/Audacity/Preferences/internal/AutomaticUpdateSection.qml

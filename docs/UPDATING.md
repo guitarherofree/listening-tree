@@ -3,13 +3,15 @@
 ## How the in-app updater works
 
 1. **Checking.** At most once a day (at startup, or later if the app stays
-   open; never during playback or recording), and whenever you choose
-   **Help › Check for update**, the app asks GitHub for the newest release of
+   open; never during playback or recording), and whenever you click
+   **Check for updates** next to the Home and Project tabs (or choose
+   **Help › Check for update**), the app asks GitHub for the newest release of
    `guitarherofree/listening-tree` and compares its version with its own.
    Turn the daily check off in **Preferences › General › Automatic update check**.
 2. **Choosing.** If there is a newer version, a window shows its release
-   notes, plus the notes of any versions in between that you skipped. You
-   choose **Install update**, **Remind me later**, or **Skip this version**.
+   notes, plus the notes of any versions in between that you skipped, and the
+   button in the main window changes to **Update available** (click it to see
+   the window again). You choose **Install update**, **Remind me later**, or **Skip this version**.
 3. **Downloading.** The disk image for your kind of Mac is downloaded with a
    progress bar and checked against the SHA-256 checksum GitHub recorded when
    it was uploaded. A damaged download is discarded.

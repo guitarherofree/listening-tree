@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Listening Tree <listening-tree@localhost>
 Date: Sat, 14 Nov 2026 13:13:25 -0500
-Subject: [PATCH 1/5] Listening Tree: app name, bundle ID, settings namespace
- and version
+Subject: [PATCH] Listening Tree: app name, bundle ID, settings namespace and
+ version
 
 Hooks cmake/ListeningTree.cmake (from the Listening Tree repository) into the
 configure step, gives the app its own settings namespace and bundle version,

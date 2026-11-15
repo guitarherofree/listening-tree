@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Listening Tree <listening-tree@localhost>
 Date: Sat, 14 Nov 2026 13:14:14 -0500
-Subject: [PATCH 3/5] Listening Tree: build and register feature modules from
+Subject: [PATCH] Listening Tree: build and register feature modules from
  features/enabled.txt
 
 
