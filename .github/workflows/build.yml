@@ -52,6 +52,17 @@ jobs:
           ls -la preview
           pkill -f "$app/Contents/MacOS" || true
 
+          # Also print them into this log, which (unlike attachments) can be read with gh run view --log
+          echo "=== QML and warning lines from the app log"
+          grep -h -i -E "qml|warn|error|ReferenceError|TypeError" preview/*.log | grep -v -i "shortcut" | head -200 || true
+          for shot in screen screen-later; do
+            [ -f "preview/$shot.png" ] || continue
+            sips -s format jpeg -s formatOptions 70 -Z 1800 "preview/$shot.png" --out "preview/$shot.jpg" >/dev/null
+            echo "=== BEGIN $shot.jpg base64"
+            base64 -i "preview/$shot.jpg" | fold -w 2000
+            echo "=== END $shot.jpg base64"
+          done
+
       - name: Attach the preview
         if: ${{ inputs.preview }}
         uses: actions/upload-artifact@v7
