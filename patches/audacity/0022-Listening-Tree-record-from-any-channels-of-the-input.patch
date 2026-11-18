@@ -1,0 +1,318 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Wed, 18 Nov 2026 18:26:19 -0500
+Subject: [PATCH] Listening Tree: record from any channels of the input
+
+
+diff --git a/au3/libraries/au3-audio-devices/AudioIOBase.cpp b/au3/libraries/au3-audio-devices/AudioIOBase.cpp
+index 9fe00140acd452fb4f329fc6a8523cbf663ea663..fecb07de243aecf849903d0b1a6e7656151df5d7 100644
+--- a/au3/libraries/au3-audio-devices/AudioIOBase.cpp
++++ b/au3/libraries/au3-audio-devices/AudioIOBase.cpp
+@@ -1101,6 +1101,8 @@ DoubleSetting AudioIOPlaybackVolume {
+     L"/AudioIO/PlaybackVolume", 1.0 };
+ IntSetting AudioIORecordChannels{
+     L"/AudioIO/RecordChannels", 2 };
++IntSetting AudioIORecordChannelOffset{
++    L"/AudioIO/RecordChannelOffset", 0 };
+ StringSetting AudioIORecordingDevice{
+     L"/AudioIO/RecordingDevice", L"" };
+ StringSetting AudioIORecordingSource{
+diff --git a/au3/libraries/au3-audio-devices/AudioIOBase.h b/au3/libraries/au3-audio-devices/AudioIOBase.h
+index 6f0cbe114f795790e90d2602094bd82ab7085a39..a4940abe8eeb0a7e474ac0a8198fc8f056855478 100644
+--- a/au3/libraries/au3-audio-devices/AudioIOBase.h
++++ b/au3/libraries/au3-audio-devices/AudioIOBase.h
+@@ -411,6 +411,9 @@ extern AUDIO_DEVICES_API StringSetting AudioIOPlaybackDevice;
+ extern AUDIO_DEVICES_API StringSetting AudioIOPlaybackSource;
+ extern AUDIO_DEVICES_API DoubleSetting AudioIOPlaybackVolume;
+ extern AUDIO_DEVICES_API IntSetting AudioIORecordChannels;
++//! Listening Tree: the first input channel to record from (0-based), so any channels of a
++//! multi-channel input can be recorded, not only the first ones
++extern AUDIO_DEVICES_API IntSetting AudioIORecordChannelOffset;
+ extern AUDIO_DEVICES_API StringSetting AudioIORecordingDevice;
+ extern AUDIO_DEVICES_API StringSetting AudioIORecordingSource;
+ extern AUDIO_DEVICES_API IntSetting AudioIORecordingSourceIndex;
+diff --git a/au3/libraries/au3-audio-io/AudioIO.cpp b/au3/libraries/au3-audio-io/AudioIO.cpp
+index d82c35482d65ea9f1919028b666e08564b174736..1d28ed46e50a93108edc63bd466ac1181379a117 100644
+--- a/au3/libraries/au3-audio-io/AudioIO.cpp
++++ b/au3/libraries/au3-audio-io/AudioIO.cpp
+@@ -73,8 +73,10 @@ time warp info and AudioIOListener and whether the playback is looped.
+ #include <math.h>
+ #include <stdlib.h>
+ #include <algorithm>
++#include <cstdint>
+ #include <numeric>
+ #include <optional>
++#include <vector>
+ 
+ #ifdef __WXMSW__
+ #include <malloc.h>
+@@ -88,6 +90,23 @@ time warp info and AudioIOListener and whether the playback is looped.
+ #ifdef __WXMSW__
+ #include "pa_win_wasapi.h"
+ #endif
++#ifdef __APPLE__
++// Listening Tree: input channel map. These are PortAudio's declarations from pa_mac_core.h,
++// repeated here so the macOS SDK headers it pulls in stay out of this file.
++extern "C" {
++typedef struct
++{
++    unsigned long size;
++    PaHostApiTypeId hostApiType;
++    unsigned long version;
++    unsigned long flags;
++    int32_t const* channelMap;
++    unsigned long channelMapSize;
++} PaMacCoreStreamInfo;
++void PaMacCore_SetupStreamInfo(PaMacCoreStreamInfo* data, unsigned long flags);
++void PaMacCore_SetupChannelMap(PaMacCoreStreamInfo* data, const int32_t* const channelMap, unsigned long channelMapSize);
++}
++#endif
+ 
+ #if USE_PORTMIXER
+ #include "portmixer.h"
+@@ -560,6 +579,13 @@ bool AudioIO::StartPortAudioStream(const AudioIOStartStreamOptions& options,
+     PaWasapiStreamInfo wasapiStreamInfo{};
+    #endif
+ 
++   #ifdef __APPLE__
++    // Listening Tree: lets the capture stream start at any channel of the input
++    // (PortAudio only reads the map when the stream opens, so it lives until then)
++    PaMacCoreStreamInfo macCaptureStreamInfo{};
++    std::vector<int32_t> macCaptureChannelMap;
++   #endif
++
+     auto latencyDuration = AudioIOLatencyDuration.Read();
+ 
+     if (numPlaybackChannels > 0) {
+@@ -646,6 +672,24 @@ bool AudioIO::StartPortAudioStream(const AudioIOStartStreamOptions& options,
+         captureParameters.hostApiSpecificStreamInfo = NULL;
+         captureParameters.channelCount = mNumCaptureChannels;
+ 
++       #ifdef __APPLE__
++        // Listening Tree: record from the chosen channels, e.g. 3 and 4 of a 4-channel input,
++        // rather than always the first ones
++        const int firstChannel = std::max(0, AudioIORecordChannelOffset.Read());
++        const int captureChannels = static_cast<int>(mNumCaptureChannels);
++        if (firstChannel > 0 && hostInfo && hostInfo->type == paCoreAudio
++            && firstChannel + captureChannels <= captureDeviceInfo->maxInputChannels) {
++            macCaptureChannelMap.resize(captureChannels);
++            // For input, map[stream channel] = device channel (0-based)
++            std::iota(macCaptureChannelMap.begin(), macCaptureChannelMap.end(), static_cast<int32_t>(firstChannel));
++            constexpr unsigned long paMacCorePlayNice = 0x00;
++            PaMacCore_SetupStreamInfo(&macCaptureStreamInfo, paMacCorePlayNice);
++            PaMacCore_SetupChannelMap(&macCaptureStreamInfo, macCaptureChannelMap.data(),
++                                      static_cast<unsigned long>(macCaptureChannelMap.size()));
++            captureParameters.hostApiSpecificStreamInfo = &macCaptureStreamInfo;
++        }
++       #endif
++
+         if (mSoftwarePlaythrough && !isMME) {
+             captureParameters.suggestedLatency
+                 =captureDeviceInfo->defaultHighInputLatency;
+diff --git a/src/au3audio/internal/au3audiodrivercontroller.cpp b/src/au3audio/internal/au3audiodrivercontroller.cpp
+index 3d8df54f881fa35b5f8a602dc02d5988d57cdd16..8dfbe385bddd94b1a06ae10d41c3ef09f8d6cf98 100644
+--- a/src/au3audio/internal/au3audiodrivercontroller.cpp
++++ b/src/au3audio/internal/au3audiodrivercontroller.cpp
+@@ -36,6 +36,8 @@ const muse::Settings::Key AUDIO_HOST("au3audio", "AudioIO/Host");
+ const muse::Settings::Key PLAYBACK_DEVICE("au3audio", "AudioIO/PlaybackDevice");
+ const muse::Settings::Key RECORDING_DEVICE("au3audio", "AudioIO/RecordingDevice");
+ const muse::Settings::Key INPUT_CHANNELS("au3audio", "AudioIO/RecordChannels");
++// Listening Tree: the first input channel recorded (0-based); au3's AudioIORecordChannelOffset
++const muse::Settings::Key INPUT_CHANNEL_OFFSET("au3audio", "AudioIO/RecordChannelOffset");
+ const muse::Settings::Key AUTOMATIC_LATENCY_COMPENSATION("au3audio", "AudioIO/AutomaticLatencyCompensation");
+ const muse::Settings::Key LATENCY_DURATION("au3audio", "AudioIO/LatencyDuration");
+ const muse::Settings::Key LATENCY_COMPENSATION("au3audio", "AudioIO/LatencyCompensation");
+@@ -192,6 +194,12 @@ void Au3AudioDriverController::init()
+                        availableChannels)
+           : 0;
+     settings()->setLocalValue(INPUT_CHANNELS, muse::Val(inputChannels));
++    // Listening Tree: keep the first recorded channel within the device's channels
++    const auto inputChannelOffset = availableChannels > 0
++                                    ? std::clamp(settings()->value(INPUT_CHANNEL_OFFSET).toInt(), 0,
++                                                 std::max(0, availableChannels - inputChannels))
++                                    : 0;
++    settings()->setLocalValue(INPUT_CHANNEL_OFFSET, muse::Val(inputChannelOffset));
+     m_configuration = configurationFromSettings();
+ 
+     applyPreferredDeviceDefaults();
+@@ -288,6 +296,7 @@ void Au3AudioDriverController::initDefaults()
+     settings()->setDefaultValue(PLAYBACK_DEVICE, muse::Val(std::string()));
+     settings()->setDefaultValue(RECORDING_DEVICE, muse::Val(std::string()));
+     settings()->setDefaultValue(INPUT_CHANNELS, muse::Val(1));
++    settings()->setDefaultValue(INPUT_CHANNEL_OFFSET, muse::Val(0));
+     settings()->setDefaultValue(LATENCY_DURATION, muse::Val(100.0));
+     settings()->setDefaultValue(AUTOMATIC_LATENCY_COMPENSATION, muse::Val(false));
+     settings()->setDefaultValue(LATENCY_COMPENSATION, muse::Val(-130.0));
+@@ -304,6 +313,7 @@ AudioConfiguration Au3AudioDriverController::configurationFromSettings() const
+     result.outputDevice = selectionFromSetting(settings()->value(PLAYBACK_DEVICE).toString());
+     result.inputDevice = selectionFromSetting(settings()->value(RECORDING_DEVICE).toString());
+     result.inputChannels = settings()->value(INPUT_CHANNELS).toInt();
++    result.inputChannelOffset = settings()->value(INPUT_CHANNEL_OFFSET).toInt();
+     result.bufferLength = settings()->value(LATENCY_DURATION).toDouble();
+     result.automaticLatencyCompensation = settings()->value(AUTOMATIC_LATENCY_COMPENSATION).toBool();
+     result.latencyCompensation = settings()->value(LATENCY_COMPENSATION).toDouble();
+@@ -432,8 +442,12 @@ std::optional<AudioConfiguration> Au3AudioDriverController::normalizedConfigurat
+     const int channels = inputChannelsAvailable(result.api, result.inputDevice);
+     if (channels > 0) {
+         result.inputChannels = std::clamp(change.inputChannels.value_or(result.inputChannels), 1, channels);
++        // Listening Tree: a new channel count without a first channel starts at channel 1, as before
++        const int offset = change.inputChannelOffset.value_or(change.inputChannels ? 0 : result.inputChannelOffset);
++        result.inputChannelOffset = std::clamp(offset, 0, channels - result.inputChannels);
+     } else {
+         result.inputChannels = 0;
++        result.inputChannelOffset = 0;
+     }
+ 
+     if (change.bufferLength) {
+@@ -480,7 +494,7 @@ AudioConfigurationDelta Au3AudioDriverController::makeDelta(const AudioConfigura
+     if (before.inputDevice != after.inputDevice) {
+         add(AudioConfigurationField::InputDevice);
+     }
+-    if (before.inputChannels != after.inputChannels) {
++    if (before.inputChannels != after.inputChannels || before.inputChannelOffset != after.inputChannelOffset) {
+         add(AudioConfigurationField::InputChannels);
+     }
+     if (!muse::RealIsEqual(before.bufferLength, after.bufferLength)) {
+@@ -621,6 +635,7 @@ void Au3AudioDriverController::writeConfiguration(const AudioConfiguration& valu
+     }
+     if (delta.contains(AudioConfigurationField::InputChannels)) {
+         settings()->setLocalValue(INPUT_CHANNELS, muse::Val(value.inputChannels));
++        settings()->setLocalValue(INPUT_CHANNEL_OFFSET, muse::Val(value.inputChannelOffset));
+     }
+     if (delta.contains(AudioConfigurationField::BufferLength)) {
+         settings()->setLocalValue(LATENCY_DURATION, muse::Val(value.bufferLength));
+@@ -845,6 +860,7 @@ ApplyResult Au3AudioDriverController::reload(const muse::modularity::ContextPtr&
+     change.outputDevice = fromSettings.outputDevice;
+     change.inputDevice = fromSettings.inputDevice;
+     change.inputChannels = fromSettings.inputChannels;
++    change.inputChannelOffset = fromSettings.inputChannelOffset;
+     change.bufferLength = fromSettings.bufferLength;
+     change.automaticLatencyCompensation = fromSettings.automaticLatencyCompensation;
+     change.latencyCompensation = fromSettings.latencyCompensation;
+diff --git a/src/audio/audioconfigurationtypes.h b/src/audio/audioconfigurationtypes.h
+index e01c83396864f4d692a5b565bac8cdf6d92cae1e..549ef2ad1b5c0686b980918620e87de17a1aa98c 100644
+--- a/src/audio/audioconfigurationtypes.h
++++ b/src/audio/audioconfigurationtypes.h
+@@ -17,6 +17,9 @@ struct AudioConfiguration {
+     AudioDeviceSelection outputDevice;
+     AudioDeviceSelection inputDevice;
+     int inputChannels = 1;
++    //! Listening Tree: the first input channel recorded (0-based), so channels 3 and 4 of a
++    //! four-channel input can be recorded on their own. Part of the InputChannels field.
++    int inputChannelOffset = 0;
+     double bufferLength = 0.0;
+     bool automaticLatencyCompensation = false;
+     double latencyCompensation = 0.0;
+@@ -30,6 +33,7 @@ struct AudioConfigurationChange {
+     std::optional<AudioDeviceSelection> outputDevice;
+     std::optional<AudioDeviceSelection> inputDevice;
+     std::optional<int> inputChannels;
++    std::optional<int> inputChannelOffset; // Listening Tree
+     std::optional<double> bufferLength;
+     std::optional<bool> automaticLatencyCompensation;
+     std::optional<double> latencyCompensation;
+diff --git a/src/playback/internal/playbackcontroller.cpp b/src/playback/internal/playbackcontroller.cpp
+index 3b9c1b4ebe182591a79a8502546186fec9f80ce7..cde3117e43351e989583d4d358b276567ad961ce 100644
+--- a/src/playback/internal/playbackcontroller.cpp
++++ b/src/playback/internal/playbackcontroller.cpp
+@@ -951,6 +951,11 @@ void PlaybackController::setInputChannels(const muse::actions::ActionQuery& q)
+     const int channels = q.param("input-channels_index").toInt();
+     AudioConfigurationChange change;
+     change.inputChannels = channels;
++    // Listening Tree: optionally which channel to start at (1-based), e.g. 3 to record
++    // channels 3 and 4; without it, recording starts at channel 1 as before
++    if (q.contains("first_channel")) {
++        change.inputChannelOffset = std::max(0, q.param("first_channel").toInt() - 1);
++    }
+     handleAudioConfigurationResult(audioDriverController()->apply(iocContext(), change),
+                                    PLAYBACK_CHANGE_INPUT_CHANNELS_QUERY.toString());
+ }
+diff --git a/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp b/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp
+index 97384065d17d1438faf4162a54fec430ddc5bd61..6568bcbd302ea0ac000c899a25e6f4cfce63bd38 100644
+--- a/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp
++++ b/src/projectscene/view/toolbars/audiodevicetoolbaritem.cpp
+@@ -109,28 +109,69 @@ void AudioDeviceToolBarItem::rebuildHosts()
+ 
+ void AudioDeviceToolBarItem::rebuildChannels()
+ {
+-    const int selected = audioDriverController()->configuration().inputChannels;
++    //! NOTE every channel of the input can be recorded: each one on its own (a mono track),
++    //! each pair 1–2, 3–4, … (a stereo track), or all of them. For example channels 1–2 of a
++    //! Neural DSP Nano Cortex are the dry signal and 3–4 the processed one.
++    const audio::AudioConfiguration config = audioDriverController()->configuration();
++    const int selectedCount = config.inputChannels;
++    const int selectedFirst = config.inputChannelOffset + 1;
+     const int available = audioDriverController()->inputChannelsAvailable();
+ 
+-    // Same wording as the "Audio setup" menu
+-    auto channelName = [](int channels) -> QString {
+-        return channels == 1
+-               //: %1 is the recording channel number
+-               ? muse::qtrc("projectscene/toolbars", "%1 (Mono) Recording channel").arg(channels)
+-               : channels == 2
+-               //: %1 is the recording channel number
+-               ? muse::qtrc("projectscene/toolbars", "%1 (Stereo) Recording channels").arg(channels)
+-               : QString::number(channels);
++    auto channelsTitle = [](int first, int count) -> QString {
++        if (count == 1) {
++            //: %1 is an input channel number
++            return muse::qtrc("projectscene", "Channel %1 (mono)").arg(first);
++        }
++        if (count == 2) {
++            //: %1 and %2 are input channel numbers
++            return muse::qtrc("projectscene", "Channels %1–%2 (stereo)").arg(first).arg(first + 1);
++        }
++        //: %1 and %2 are input channel numbers
++        return muse::qtrc("projectscene", "Channels %1–%2").arg(first).arg(first + count - 1);
+     };
+ 
+-    for (int channels = 1; channels <= available; ++channels) {
++    m_currentValue.clear();
++
++    auto addOption = [&](int first, int count, const QString& title) {
+         ActionQuery query = CHANGE_INPUT_CHANNELS_QUERY;
+-        query.addParam("input-channels_index", muse::Val(channels));
+-        m_items << makeDeviceItem(QString::fromStdString(query.toString()), channelName(channels), channels == selected);
++        query.addParam("input-channels_index", muse::Val(count));
++        query.addParam("first_channel", muse::Val(first));
++        const bool checked = count == selectedCount && first == selectedFirst;
++        m_items << makeDeviceItem(QString::fromStdString(query.toString()), title, checked);
++        if (checked) {
++            m_currentValue = title;
++        }
++    };
++
++    auto addSeparator = [this]() {
++        MenuItem* separator = new MenuItem(this);
++        separator->setAction(UiAction());
++        m_items << separator;
++    };
++
++    for (int channel = 1; channel <= available; ++channel) {
++        addOption(channel, 1, channelsTitle(channel, 1));
+     }
+ 
+-    m_currentValue = available > 0 ? channelName(std::clamp(selected, 1, available))
+-                     : muse::qtrc("projectscene", "No recording channels");
++    if (available >= 2) {
++        addSeparator();
++        for (int channel = 1; channel + 1 <= available; channel += 2) {
++            addOption(channel, 2, channelsTitle(channel, 2));
++        }
++    }
++
++    if (available > 2) {
++        addSeparator();
++        //: %1 is the number of input channels
++        addOption(1, available, muse::qtrc("projectscene", "All %1 channels").arg(available));
++    }
++
++    if (available <= 0) {
++        m_currentValue = muse::qtrc("projectscene", "No recording channels");
++    } else if (m_currentValue.isEmpty()) {
++        // Chosen elsewhere (e.g. Preferences) as a combination this list doesn't offer
++        m_currentValue = channelsTitle(selectedFirst, std::max(1, selectedCount));
++    }
+ }
+ 
+ void AudioDeviceToolBarItem::rebuild()

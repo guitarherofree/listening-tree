@@ -10,6 +10,14 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-18
+
+**Record from any channel of your interface.**
+
+- **The channel dropdown next to the input now lists every channel.** Pick a single channel (recorded as a mono track), a pair such as **Channels 3–4** (a stereo track), or all of the input's channels at once. Before, Listening Tree could only record the first one or two channels.
+- On the Nano Cortex, channels 1–2 are the dry signal, so choose 3–4 (or whichever channels carry the processed sound) to record what you hear.
+- Choosing a number of channels in Preferences › Audio starts from channel 1 again.
+
 ## [0.12.0] - 2026-11-15
 
 **A toolbar laid out like Audacity 3's.**
