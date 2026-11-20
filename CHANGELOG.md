@@ -10,6 +10,16 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-19
+
+**Send a take to Notation or Golden Ears.**
+
+- **File › Send to Notation** saves the audio as a WAV file and opens it in Notation, in a new score in Analyze Mode: click **Transcribe** to turn it into a score.
+- **File › Send to Golden Ears** does the same for Golden Ears, which analyses it in Harmonic Space and replays it with the sound, the lattice moving with what you hear.
+- What is sent: the time selection (or the selected clips) if there is one, otherwise the whole project. Muted tracks are left out, so to send only the dry guitar, mute the processed track (or select only the dry one). The file is mono, 48 kHz, so each app hears one clean signal.
+- The files are kept in **Music › Listening Tree › Sent**, named after the project and the time, because Notation and Golden Ears refer to them rather than copying them.
+- Needs Notation 2.2 and Golden Ears 1.14 or later, which open files sent to them this way.
+
 ## [0.13.0] - 2026-11-18
 
 **Record from any channel of your interface.**
