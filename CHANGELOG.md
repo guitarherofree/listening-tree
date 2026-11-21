@@ -10,6 +10,14 @@ lists, **bold** and links show up nicely in the app.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-20
+
+**Levels start at full.**
+
+- **The recording level and the playback level are turned all the way up every time Listening Tree opens**, whatever they were left at last time.
+- If your interface lets the Mac set its input level (as the Nano Cortex may), that level is set to full too, including when you choose a different recording device or plug one in while the app is open. That level now always matches the recording slider in the toolbar.
+- You can still turn either slider down during a session; it goes back to full the next time you open the app.
+
 ## [0.13.0] - 2026-11-18
 
 **Record from any channel of your interface.**

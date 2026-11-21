@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Listening Tree <listening-tree@localhost>
+Date: Fri, 20 Nov 2026 19:47:00 -0500
+Subject: [PATCH] Listening Tree: recording and playback levels start at full
+
+Every launch sets the recording level and the playback level to full. A
+recording device that is chosen or plugged in later is set to the level the
+toolbar shows, instead of the level the device was left at.
+
+diff --git a/src/au3audio/au3audiomodule.cpp b/src/au3audio/au3audiomodule.cpp
+index 837ad0e79d2d81fa98efd85e109b3ec1f3f8ac0d..6e68473265bd177698e0c0b12a0c10671494a11e 100644
+--- a/src/au3audio/au3audiomodule.cpp
++++ b/src/au3audio/au3audiomodule.cpp
+@@ -52,6 +52,11 @@ void Au3AudioModule::onInit(const muse::IApplication::RunMode&)
+ {
+     m_audioEngine->init();
+     m_audioDriverController->init();
++
++    //! Listening Tree: the recording and playback levels start at full every time the app opens
++    m_audioEngine->setInputVolume(1.0f);
++    m_audioEngine->setPlaybackVolume(1.0f);
++
+     m_systemAudioDevicesListener->startListening();
+ }
+ 
+diff --git a/src/au3audio/internal/au3audioengine.cpp b/src/au3audio/internal/au3audioengine.cpp
+index 321419ab213188cd6a8fc77406139ed85019e6a5..c0bc402f8d2469c593aa9782577a7729a7a64b3d 100644
+--- a/src/au3audio/internal/au3audioengine.cpp
++++ b/src/au3audio/internal/au3audioengine.cpp
+@@ -155,6 +155,8 @@ void Au3AudioEngine::stopMonitoring()
+ 
+ void Au3AudioEngine::setInputVolume(const float newInputVolume)
+ {
++    m_inputVolume = newInputVolume; // Listening Tree: remembered for devices picked up later
++
+     int inputSource;
+     float inputVolume;
+     float playbackVolume;
+@@ -199,6 +201,12 @@ bool Au3AudioEngine::canStopAudioStream(AudacityProject& project) const
+ void Au3AudioEngine::handleDeviceChange()
+ {
+     AudioIO::Get()->HandleDeviceChange();
++
++    //! Listening Tree: a recording device that has just been chosen or plugged in gets the
++    //! recording level the toolbar shows, instead of whatever level the device was left at
++    if (AudioIO::Get()->InputMixerWorks() && getInputVolume() != m_inputVolume) {
++        setInputVolume(m_inputVolume);
++    }
+ }
+ 
+ muse::String Au3AudioEngine::lastErrorString() const
+diff --git a/src/au3audio/internal/au3audioengine.h b/src/au3audio/internal/au3audioengine.h
+index ffc18400d93aecc1bc582b76da81e22efcf2909f..eab64f35c8cc2880de621d6e55edc6d6bcc430cc 100644
+--- a/src/au3audio/internal/au3audioengine.h
++++ b/src/au3audio/internal/au3audioengine.h
+@@ -58,5 +58,9 @@ public:
+ private:
+     Observer::Subscription m_streamStatusSubscription;
+     muse::async::Notification m_streamStopped;
++
++    //! Listening Tree: the recording level the toolbar shows (linear). A recording device
++    //! that is chosen or plugged in later is set to this level too.
++    float m_inputVolume = 1.0f;
+ };
+ }
