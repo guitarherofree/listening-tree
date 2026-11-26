@@ -49,11 +49,11 @@ does it for you (see [RELEASING.md](RELEASING.md)).
 ## Building on GitHub instead
 
 The **Build** workflow (GitHub › Actions › Build › Run workflow) makes a release
-build on GitHub's Macs and attaches the disk image to the run for a week. While
-the repository is private, macOS build time comes out of your monthly Actions
-allowance at 10× the Linux rate (on the free plan about 200 macOS minutes a
-month; a first build takes roughly an hour, later ones less thanks to the
-compiler cache). Building on your Mac costs nothing.
+build on GitHub's Macs and attaches the disk image to the run for a week. The
+repository is public, so GitHub's standard Mac runners cost nothing. (If it were
+private, macOS build time would come out of the monthly Actions allowance at 10×
+the Linux rate, about 200 macOS minutes a month on the free plan, and a first
+build takes roughly an hour.)
 
 Tick **preview** when running it to check a change to the look of the app without
 a Mac at hand: the workflow then also starts the app on GitHub's Mac (allowing the

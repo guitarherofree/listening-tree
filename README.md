@@ -8,9 +8,6 @@ GitHub Releases page.
 
 ## Quick start (on your Mac)
 
-The repository is private, so git has to be signed in to GitHub first (once per Mac):
-`brew install gh && gh auth login --git-protocol https --web`, or clone it with GitHub Desktop.
-
 ```sh
 git clone https://github.com/guitarherofree/listening-tree.git ~/ListeningTree
 cd ~/ListeningTree
@@ -54,7 +51,7 @@ and saving the result back into `patches/`. See [docs/DEVELOPING.md](docs/DEVELO
 - [Building](docs/BUILDING.md): requirements, first build, everyday builds, problems
 - [Making changes](docs/DEVELOPING.md): editing Audacity code, adding and removing features
 - [Releasing](docs/RELEASING.md): publishing a new version on GitHub
-- [Updating the app](docs/UPDATING.md): how the updater works, the GitHub token for a private repository, installing by hand, going back a version
+- [Updating the app](docs/UPDATING.md): how the updater works, installing by hand, going back a version
 - [Moving to a newer Audacity](docs/UPSTREAM.md)
 
 ## License and name

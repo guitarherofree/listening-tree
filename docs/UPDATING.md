@@ -40,11 +40,18 @@
 Development builds keep separate settings (`…ListeningTreeDev…`), so trying a
 build from `scripts/run.sh` never changes the installed app's settings either.
 
-## GitHub token (while the repository is private)
+## GitHub token (only if the repository is private)
 
-GitHub only shows a private repository's releases to signed-in users, so the
-updater needs a read-only token. Without one, or with one that can't read the
-repository, **File › Check for updates…** says so ("Couldn't check for updates … update token …").
+The repository is public, so the updater needs no token: it reads the releases
+like any visitor. A token stored earlier still works and is used if present;
+remove it with `scripts/set-update-token.sh --remove` (or
+`security delete-generic-password -s com.guitarherofree.listeningtree.github-token -a github`),
+especially before it expires, because an expired token makes update checks fail.
+
+If the repository is ever made private again, GitHub only shows its releases to
+signed-in users, so the updater needs a read-only token. Without one, or with
+one that can't read the repository, **File › Check for updates…** says so
+("Couldn't check for updates … update token …").
 
 1. Go to <https://github.com/settings/personal-access-tokens/new>
    (a "fine-grained" token).

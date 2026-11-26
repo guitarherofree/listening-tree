@@ -43,8 +43,8 @@ which builds on GitHub's macOS runners and publishes the release. Follow it
 with `gh run watch`. You can also start it from GitHub › Actions › Release ›
 Run workflow: choose the branch (usually `main`) whose `VERSION` you want to
 publish and type the tag (`v0.2.0`); the release creates the tag if it doesn't
-exist yet. While the repository is private this uses macOS Actions minutes;
-see [BUILDING.md](BUILDING.md).
+exist yet. On the public repository this costs nothing; see
+[BUILDING.md](BUILDING.md).
 
 ## Version numbers
 
